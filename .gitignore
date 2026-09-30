@@ -1,0 +1,5 @@
+# Archivos que Godot genera solo (no hace falta subirlos)
+.godot/
+*.translation
+export_presets.cfg
+.mono/

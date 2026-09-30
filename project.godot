@@ -1,0 +1,34 @@
+; Archivo de configuración del proyecto de Godot. Normalmente no necesitas editarlo a mano:
+; todo se cambia desde Proyecto > Configuración del proyecto.
+
+config_version=5
+
+[application]
+
+config/name="Super Brawl"
+config/description="Juego de peleas de plataformas estilo Smash Bros"
+run/main_scene="res://scenes/menu.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+Game="*res://scripts/game.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.05, 0.05, 0.1, 1)
