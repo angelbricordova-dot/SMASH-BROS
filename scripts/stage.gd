@@ -463,6 +463,7 @@ func training_reset() -> void:
 
 ## Panel del modo Entrenamiento: contador de combos, daño y lo que hace el muñeco ILUNA.
 class TrainingPanel extends Control:
+	const GRACE := 0.2        # margen entre golpes para que siga contando como combo (segundos)
 	const BEHAVIORS := ["quieto", "agachado", "saltar", "caminar", "escudo", "cpu"]
 	const NAMES := {"quieto": "Quieto", "agachado": "Agachado", "saltar": "Saltando", "caminar": "Caminando",
 		"escudo": "Con escudo", "cpu": "Pelea (CPU)"}
@@ -511,7 +512,7 @@ class TrainingPanel extends Control:
 		var dp := _dummy.percent - _prev
 		_prev = _dummy.percent
 		if dp > 0.05:
-			if _idle > 0.12:
+			if _idle > GRACE:
 				hits = 0
 				dmg = 0.0
 			hits += 1
@@ -522,7 +523,7 @@ class TrainingPanel extends Control:
 				Effects.popup(stage, _dummy.global_position + Vector2(0, -150), "%d GOLPES" % hits,
 					Color(1, 0.85, 0.3), 0.8 + minf(hits, 10) * 0.04)
 		elif not in_combo:
-			if _idle <= 0.12 and _idle + delta > 0.12 and hits > 0:
+			if _idle <= GRACE and _idle + delta > GRACE and hits > 0:
 				last = [hits, dmg]
 				if hits > best[0] or (hits == best[0] and dmg > best[1]):
 					best = [hits, dmg]
@@ -539,7 +540,7 @@ class TrainingPanel extends Control:
 		var r := Rect2(20, 20, 330, 228)
 		draw_style_box(UI.style(Color(0.05, 0.05, 0.12, 0.8), 16, Color(1, 0.6, 0.3, 0.8), 2), r)
 		draw_string(ft, Vector2(36, 54), "ENTRENAMIENTO", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, Color(1, 0.65, 0.35))
-		var combo_txt := _golpes(hits) + " · %d%%" % int(dmg) if _idle <= 0.12 and hits > 0 else "—"
+		var combo_txt := _golpes(hits) + " · %d%%" % int(dmg) if _idle <= GRACE and hits > 0 else "—"
 		var fs := int(24 * (1.0 + _pop))
 		draw_string(fb, Vector2(36, 86), "Combo:", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI.MUTED)
 		draw_string_outline(ft, Vector2(100, 88), combo_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color(0, 0, 0, 0.8))
