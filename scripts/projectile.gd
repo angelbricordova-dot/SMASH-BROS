@@ -33,7 +33,7 @@ func _ready() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.texture = texture
 	_sprite.hframes = hframes
-	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	var sc := sprite_scale if sprite_scale > 0.0 else radius / 16.0 * 1.2
 	var dir := -1.0 if velocity.x < 0.0 and not rotate_to_velocity else 1.0
 	_sprite.scale = Vector2(sc * dir, sc)

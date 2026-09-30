@@ -32,6 +32,26 @@ static func hit(parent: Node, pos: Vector2, strength: float, color: Color, dir :
 		_add(parent, s, pos)
 
 
+## Golpe con impacto de verdad: destello blanco, estrella, dos ondas, líneas de choque,
+## partículas y el número de daño saltando.
+static func impact(parent: Node, pos: Vector2, strength: float, color: Color, dir := 1, dmg := 0.0) -> void:
+	hit(parent, pos, strength, color, dir)
+	_add(parent, _fx("flash", Color(1, 1, 1), 0.07 + 0.05 * strength, 22.0 + 34.0 * strength), pos)
+	ring(parent, pos, color, 50.0 + 70.0 * strength)
+	if strength > 0.75 and strength <= 1.1:
+		var s := _fx("impact", Color(1, 1, 1), 0.14, strength)
+		s.extra = Vector2(dir, 0)
+		_add(parent, s, pos)
+	if strength > 1.3:
+		burst(parent, pos, {"count": 10, "color": Color(1, 1, 1), "speed": 520.0 * strength, "life": 0.25,
+			"size": 3.0, "angle": 0.0 if dir > 0 else 180.0, "spread": 25.0, "streak": true})
+	if dmg >= 1.0:
+		var t := _fx("dmg", color.lerp(Color.WHITE, 0.4), 0.75, clampf(0.45 + dmg / 30.0, 0.5, 1.1))
+		t.text = "%d%%" % roundi(dmg)
+		t.extra = Vector2(randf_range(-30, 30), 0)
+		_add(parent, t, pos + Vector2(0, -20))
+
+
 static func spark(parent: Node, pos: Vector2, size: float, color: Color) -> void:
 	var s := _fx("spark", color, 0.22, size)
 	s.rotation = randf() * TAU
@@ -104,7 +124,7 @@ static func afterimage(parent: Node, fighter: Fighter, color: Color) -> void:
 	s.flip_h = fighter.sprite.flip_h
 	s.scale = fighter.sprite.scale
 	s.modulate = color
-	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	s.global_position = fighter.sprite.global_position
 	s.rotation = fighter.sprite.rotation
 	parent.add_child(s)
@@ -202,7 +222,7 @@ class FxNode extends Node2D:
 	var _seed := 0
 
 	func _ready() -> void:
-		z_index = 20 if kind == "text" else (-1 if kind == "runes" else 10)
+		z_index = 20 if kind == "text" or kind == "dmg" else (-1 if kind == "runes" else 10)
 		_seed = randi()
 
 	func _process(delta: float) -> void:
@@ -225,6 +245,16 @@ class FxNode extends Node2D:
 					pts.append(Vector2(cos(a), sin(a)) * rr)
 				draw_colored_polygon(pts, Color(color.r, color.g, color.b, 1.0 - k))
 				draw_circle(Vector2.ZERO, r * 0.3, Color(1, 1, 1, 1.0 - k))
+			"flash":
+				draw_circle(Vector2.ZERO, size * (1.0 - k * 0.4), Color(1, 1, 1, 0.9 * (1.0 - k)))
+				draw_circle(Vector2.ZERO, size * 0.5, Color(1, 1, 1, 1.0 - k))
+			"dmg":
+				var font: Font = Game.font_title
+				var fs := int(30 * size * (1.0 + 0.5 * maxf(0.0, 0.12 - _t) / 0.12))
+				var p := Vector2(extra.x * k - 110, -60.0 * k + 30.0 * k * k)
+				var a := 1.0 if k < 0.6 else (1.0 - k) / 0.4
+				draw_string_outline(font, p, text, HORIZONTAL_ALIGNMENT_CENTER, 220, fs, 8, Color(0, 0, 0, a))
+				draw_string(font, p, text, HORIZONTAL_ALIGNMENT_CENTER, 220, fs, Color(color.r, color.g, color.b, a))
 			"impact":
 				var a := 1.0 - k
 				for i in 10:

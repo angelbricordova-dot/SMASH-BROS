@@ -34,7 +34,7 @@ func check(name: String, ok: bool, extra := "") -> void:
 		fails += 1
 
 
-func setup_stage(c1 := "rojo", c2 := "azul", stage_id := "pradera", items := false, mode := "classic") -> void:
+func setup_stage(c1 := "lamont", c2 := "ilunna", stage_id := "pradera", items := false, mode := "classic") -> void:
 	if stage:
 		stage.queue_free()
 		await frames(2)
@@ -95,7 +95,8 @@ func _ready() -> void:
 			only = a.substr(7)
 	var tests := [["move", test_movement], ["combo", test_combos], ["smash", test_smash], ["defense", test_defense],
 		["ledge", test_ledge], ["specials", test_specials], ["items", test_items], ["cards", test_cards],
-		["ko", test_ko], ["human", test_human_input], ["menu", test_menu], ["cpu", test_cpu_matches]]
+		["ko", test_ko], ["human", test_human_input], ["menu", test_menu], ["training", test_training],
+		["final", test_final_blow], ["cpu", test_cpu_matches]]
 	for t in tests:
 		if only == "" or only == t[0]:
 			await t[1].call()
@@ -280,7 +281,7 @@ func test_ledge() -> void:
 
 func test_specials() -> void:
 	for cid in CharacterData.ORDER:
-		await setup_stage(cid, "rojo")
+		await setup_stage(cid, "lamont")
 		# neutral
 		place(p1, Vector2(-300, 199), p2, Vector2(-130, 199))
 		p1.facing = 1
@@ -292,7 +293,7 @@ func test_specials() -> void:
 		check("%s: especial golpea" % cid, p2.percent > 0.0, "%.0f%%" % p2.percent)
 		await frames(40)
 		# cargado (cada uno tiene su alcance)
-		var dist: float = {"volta": 70.0, "bruma": 385.0}.get(cid, 170.0)
+		var dist: float = {"ilunna": 120.0}.get(cid, 170.0)
 		place(p1, Vector2(-300, 199), p2, Vector2(-300 + dist, 199))
 		p2.percent = 0.0
 		p1.facing = 1
@@ -302,7 +303,7 @@ func test_specials() -> void:
 			f.in_special_pressed = true
 			f.in_special_held = true)
 		await hold(p1, func(f): f.in_special_held = true, 50)
-		var charging := p1.action.begins_with("charge") or p1.special_hold_t >= 0.0
+		var charging := (p1.state == Fighter.State.ACTION and p1.act.has("charge")) or p1.special_hold_t >= 0.0
 		await frames(150)
 		check("%s: especial cargado" % cid, charging and p2.percent > 0.0, "%.0f%% accion=%s" % [p2.percent, p1.action])
 		await frames(30)
@@ -318,6 +319,19 @@ func test_specials() -> void:
 		await frames(120)
 		check("%s: abajo + especial" % cid, started and p1.state != Fighter.State.ACTION, p1.action)
 		await frames(60)
+		# abajo + especial EN EL AIRE (antes no hacía nada)
+		place(p1, Vector2(-40, 20), p2, Vector2(-20, 199))
+		p1.facing = 1
+		p2.percent = 0.0
+		await frames(2)
+		await press(p1, func(f):
+			f.in_down = true
+			f.in_special_pressed = true)
+		await frames(2)
+		var air_act := p1.action
+		await frames(120)
+		check("%s: abajo + especial en el aire (%s)" % [cid, air_act], air_act != "" and p1.state != Fighter.State.ACTION)
+		await frames(40)
 		# recuperación
 		place(p1, Vector2(-100, 100), p2, Vector2(300, 199))
 		p1.air_jumps_left = 0
@@ -341,8 +355,16 @@ func test_specials() -> void:
 		await frames(3)
 		await press(p1, func(f): f.in_ult_pressed = true)
 		await frames(200)
-		var need := 45.0 if cid == "morado" else 20.0
-		check("%s: ULTI golpea (>= %d%%)" % [cid, need], p2.percent >= need or p2.stocks < 3, "p2=%.0f%%" % p2.percent)
+		match cid:
+			"ilunna", "panadero":
+				check("%s: ULTI transforma" % cid, p1.form == "ult", "forma=%s" % p1.form)
+			"abnielito":
+				check("abnielito: ULTI confunde al rival", p2.confused_time > 0.0, "%.1f s" % p2.confused_time)
+			"lamont":
+				check("lamont: ULTI (préstamo) suma 40%% al rival", p2.percent >= 40.0, "p2=%.0f%%" % p2.percent)
+			_:
+				check("%s: ULTI golpea (>= 20%%)" % cid, p2.percent >= 20.0 or p2.stocks < 3, "p2=%.0f%%" % p2.percent)
+		await frames(60 * 8)
 
 
 func test_items() -> void:
@@ -448,7 +470,7 @@ func test_cards() -> void:
 	if stage:
 		stage.queue_free()
 		await frames(2)
-	Game.players = [{"char": "volta", "cpu": true, "level": 2}, {"char": "nova", "cpu": true, "level": 2}]
+	Game.players = [{"char": "ilunna", "cpu": true, "level": 2}, {"char": "lamont", "cpu": true, "level": 2}]
 	Game.match_setup = {}
 	Game.mode = "cards"
 	Game.stocks = 2
@@ -460,7 +482,7 @@ func test_cards() -> void:
 		n += 1
 	var f1: Fighter = stage.fighters[0]
 	var f2: Fighter = stage.fighters[1]
-	print("   cartas: volta=%s  nova=%s" % [f1.cards, f2.cards])
+	print("   cartas: ilunna=%s  lamont=%s" % [f1.cards, f2.cards])
 	check("modo Caos de Cartas: todos eligen al inicio y hay cartas extra por KO",
 		f1.cards.size() >= 1 and f2.cards.size() >= 1 and f1.cards.size() + f2.cards.size() >= 3)
 	check("modo Caos de Cartas termina", stage.over)
@@ -469,7 +491,7 @@ func test_cards() -> void:
 
 
 func ko_test(move_fn: Callable, victim_pos: Vector2, start_pct: float, target_id: String) -> bool:
-	await setup_stage("rojo", target_id)
+	await setup_stage("lamont", target_id)
 	place(p1, victim_pos + Vector2(-50, 0), p2, victim_pos)
 	p1.facing = 1
 	p2.percent = start_pct
@@ -481,7 +503,7 @@ func ko_test(move_fn: Callable, victim_pos: Vector2, start_pct: float, target_id
 
 
 func test_ko() -> void:
-	for target in ["azul", "verde"]:
+	for target in ["ilunna", "panadero"]:
 		var found := -1
 		for pct in range(40, 300, 20):
 			if await ko_test(func(f):
@@ -489,7 +511,7 @@ func test_ko() -> void:
 					f.in_attack_pressed = true, Vector2(0, 199), float(pct), target):
 				found = pct
 				break
-		print("   KO con ataque lateral (ftilt) de rojo contra %s -> %d%%" % [target, found])
+		print("   KO con ataque lateral (ftilt) de lamont contra %s -> %d%%" % [target, found])
 
 
 func test_human_input() -> void:
@@ -497,7 +519,7 @@ func test_human_input() -> void:
 		stage.queue_free()
 		await frames(2)
 	Engine.time_scale = 1.0
-	Game.players = [{"char": "kaede", "cpu": false, "level": 1}, {"char": "azul", "cpu": true, "level": 1}]
+	Game.players = [{"char": "schizov", "cpu": false, "level": 1}, {"char": "ilunna", "cpu": true, "level": 1}]
 	Game.match_setup = {}
 	Game.mode = "classic"
 	stage = load(Game.stage_scene("pradera")).instantiate()
@@ -526,6 +548,23 @@ func test_human_input() -> void:
 	check("P1 humano: mantener F = smash cargando", f.charging, _attack_name(f))
 	Input.action_release("p1_attack")
 	await frames(60)
+	# saltar con W (arriba)
+	f.global_position = Vector2(-100, 199)
+	f.velocity = Vector2.ZERO
+	await frames(20)
+	Input.action_press("p1_up")
+	await frames(8)
+	check("P1 humano: W también salta", f.velocity.y < -200.0 or f.global_position.y < 190.0, "vy=%.0f" % f.velocity.y)
+	Input.action_release("p1_up")
+	await frames(60)
+	# W + F a la vez = ataque hacia arriba (no salta)
+	Input.action_press("p1_up")
+	Input.action_press("p1_attack")
+	await frames(3)
+	check("P1 humano: W+F = ataque arriba sin saltar", _attack_name(f) == "utilt" and f.is_on_floor(), _attack_name(f))
+	Input.action_release("p1_up")
+	Input.action_release("p1_attack")
+	await frames(60)
 
 
 func test_menu() -> void:
@@ -533,7 +572,7 @@ func test_menu() -> void:
 		stage.queue_free()
 		stage = null
 		await frames(2)
-	Game.players[0]["char"] = "rojo"
+	Game.players[0]["char"] = "ilunna"
 	var menu: Node = load("res://scenes/menu.tscn").instantiate()
 	add_child(menu)
 	await frames(5)
@@ -561,8 +600,9 @@ func test_menu() -> void:
 
 
 func test_cpu_matches() -> void:
-	var combos := [["rojo", "verde", "pradera", 0], ["kaede", "volta", "cosmos", 1], ["morado", "bruma", "ciudad", 2],
-		["nova", "azul", "volcan", 1], ["verde", "kaede", "bosque", 2], ["bruma", "rojo", "nieve", 1]]
+	var combos := [["lamont", "panadero", "pradera", 0], ["schizov", "ilunna", "cosmos", 1],
+		["abnielito", "lamont", "ciudad", 2], ["panadero", "schizov", "volcan", 1], ["ilunna", "abnielito", "bosque", 2],
+		["schizov", "lamont", "nieve", 1]]
 	for c in combos:
 		if stage:
 			stage.queue_free()
@@ -586,3 +626,53 @@ func test_cpu_matches() -> void:
 		check("partida CPU en %s termina" % c[2], stage.over)
 		await frames(240)
 		check("resultados (%s)" % c[2], stage.has_node("ResultsScreen"))
+
+
+func test_training() -> void:
+	if stage:
+		stage.queue_free()
+		await frames(2)
+	Engine.time_scale = 1.0
+	Game.players = [{"char": "ilunna", "cpu": true, "level": 1}, {"char": "iluna", "cpu": true, "level": 1}]
+	Game.match_setup = {}
+	Game.mode = "training"
+	stage = load(Game.stage_scene("pradera")).instantiate()
+	add_child(stage)
+	await frames(200)
+	p1 = stage.fighters[0]
+	p2 = stage.fighters[1]
+	p1.brain = ScriptBrain.new()
+	check("entrenamiento: ILUNA es el muñeco", p2.char_id == "iluna" and p2.get("behavior") == "quieto")
+	check("entrenamiento: panel de combos", stage._training != null)
+	place(p1, Vector2(-120, 199), p2, Vector2(-70, 199))
+	p1.facing = 1
+	await frames(5)
+	for i in 3:
+		await press(p1, func(f): f.in_attack_pressed = true)
+		await frames(7)
+	await frames(30)
+	check("entrenamiento: cuenta el combo", stage._training.best[0] >= 2 or stage._training.hits >= 2,
+		"golpes=%d mejor=%s" % [stage._training.hits, stage._training.best])
+	p2.global_position = Vector2(0, 2000)
+	await frames(120)
+	check("entrenamiento: vidas infinitas (reaparece)", p2.stocks > 90 and p2.is_alive() and not stage.over)
+	Game.mode = "classic"
+
+
+func test_final_blow() -> void:
+	await setup_stage("panadero", "ilunna")
+	p1.stocks = 1
+	p2.stocks = 1
+	place(p1, Vector2(-100, 199), p2, Vector2(-40, 199))
+	p1.facing = 1
+	p2.percent = 220.0
+	await frames(3)
+	p1._start_move(p1.moves["smash"])
+	var slow := false
+	for i in 120:
+		await frames(1)
+		if Engine.time_scale < 0.5:
+			slow = true
+	check("golpe final: cámara lenta épica", stage._final_done and slow)
+	await frames(400)
+	check("golpe final: la partida termina", stage.over)

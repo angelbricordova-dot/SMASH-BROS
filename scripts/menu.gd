@@ -12,6 +12,7 @@ enum Screen { TITLE, MAIN, CHARS, STAGE, SETTINGS, CONTROLS }
 const MAIN_OPTIONS := [
 	["JUGAR · CLÁSICO", "Pelea normal a vidas. El último en pie gana."],
 	["JUGAR · CAOS DE CARTAS", "Al empezar y con cada KO eliges una carta de mejora: doble daño, triple salto, ulti instantánea... ¡Todo vale!"],
+	["ENTRENAMIENTO", "Practica combos contra ILUNA, el muñeco de prueba. Verás cuántos golpes y cuánto daño hace cada combo."],
 	["CONTROLES", "Todas las teclas y cómo hacer cada movimiento."],
 	["AJUSTES", "Volumen de la música y los efectos, pantalla completa."],
 	["SALIR", "Cerrar el juego."],
@@ -110,15 +111,17 @@ func _centered(text: String, size: int, color: Color, y: float, title := true, o
 #  TÍTULO
 # ------------------------------------------------------------------
 func _build_title() -> void:
-	var logo := _centered("SUPER BRAWL", 140, UI.ACCENT, 60, true, 26)
+	var logo := UI.Logo.new()
 	logo.name = "Logo"
-	_centered("8 luchadores  ·  6 escenarios  ·  modo Caos de Cartas", 24, UI.TEXT, 232, false)
-	for i in CharacterData.ORDER.size():
+	_add(logo, Vector2(140, 30), Vector2(1000, 250))
+	_centered("5 luchadores  ·  6 escenarios  ·  Caos de Cartas  ·  Entrenamiento", 22, UI.TEXT, 262, false, 4)
+	var n := CharacterData.ORDER.size()
+	for i in n:
 		var at := UI.frame_tex(CharacterData.ORDER[i])
 		_anim_atlases.append(at)
-		var pic := UI.pixel_rect(at, Vector2(200, 180))
-		pic.flip_h = i >= 4
-		_add(pic, Vector2(-20 + i * 155, 300 + (i % 2) * 40), Vector2(200, 180))
+		var pic := UI.pixel_rect(at, Vector2(240, 216))
+		pic.flip_h = i > n / 2
+		_add(pic, Vector2(40 + i * 236, 318 + absi(i - n / 2) * 18), Vector2(240, 216))
 	var press := _centered("PRESIONA  ENTER", 36, Color.WHITE, 590)
 	press.name = "Press"
 	_centered("F11 pantalla completa  ·  ESC salir", 16, UI.MUTED, 680, false, 0)
@@ -128,10 +131,12 @@ func _build_title() -> void:
 #  MENÚ PRINCIPAL
 # ------------------------------------------------------------------
 func _build_main() -> void:
-	_add(UI.label("SUPER BRAWL", 64, UI.ACCENT, true, 12), Vector2(80, 40))
+	var logo := UI.Logo.new()
+	logo.small = true
+	_add(logo, Vector2(60, 20), Vector2(600, 130))
 	for i in MAIN_OPTIONS.size():
 		var l := UI.label(MAIN_OPTIONS[i][0], 36, UI.TEXT, true, 6)
-		_add(l, Vector2(100, 170 + i * 72))
+		_add(l, Vector2(100, 170 + i * 66))
 		_main_labels.append(l)
 	var panel := UI.panel(UI.CARD, 22)
 	_add(panel, Vector2(720, 180), Vector2(480, 260))
@@ -139,11 +144,11 @@ func _build_main() -> void:
 	_main_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_main_desc.custom_minimum_size = Vector2(440, 0)
 	panel.add_child(_main_desc)
-	for i in 4:
-		var at := UI.frame_tex(CharacterData.ORDER[(i * 2 + 1) % 8])
+	for i in CharacterData.ORDER.size():
+		var at := UI.frame_tex(CharacterData.ORDER[i], i)
 		_anim_atlases.append(at)
 		var pic := UI.pixel_rect(at, Vector2(160, 144))
-		_add(pic, Vector2(700 + i * 130, 470), Vector2(160, 144))
+		_add(pic, Vector2(660 + i * 110, 470), Vector2(160, 144))
 	_centered("↑ ↓  elegir     ENTER / ATAQUE  aceptar     ESC  volver", 18, UI.MUTED, 670, false, 0)
 	_refresh_main()
 
@@ -208,7 +213,7 @@ func _build_player_card(p: int, pos: Vector2) -> Dictionary:
 	glow.position = Vector2(14, 14)
 	glow.size = Vector2(210, 342)
 	panel.add_child(glow)
-	var at := UI.frame_tex("rojo")
+	var at := UI.frame_tex(CharacterData.ORDER[0])
 	_anim_atlases.append(at)
 	var pic := UI.pixel_rect(at, Vector2(300, 270))
 	pic.position = Vector2(-40, 50)
@@ -245,13 +250,24 @@ func _build_player_card(p: int, pos: Vector2) -> Dictionary:
 		"desc": desc, "abil": abil, "mode": mode_l, "ready": ready_stamp}
 
 
+## En entrenamiento el jugador 2 es siempre el muñeco ILUNA.
+func _restore_p2() -> void:
+	if Game.players[1]["char"] == "iluna":
+		Game.players[1]["char"] = CharacterData.ORDER[_cursor[1] % CharacterData.ORDER.size()]
+
+
 func _refresh_chars() -> void:
 	var n := CharacterData.ORDER.size()
+	var training := Game.mode == "training"
 	for p in 2:
+		if training and p == 1:
+			_refresh_dummy_card()
+			continue
 		var c: int = _cursor[p]
 		var id: String = "random" if c == n else CharacterData.ORDER[c]
 		Game.players[p]["char"] = id
 		var badge: PanelContainer = _badges[p]
+		badge.visible = true
 		badge.position = _tiles[c].position + Vector2(6 + p * 66, -14)
 		var card: Dictionary = _cards[p]
 		var cfg: Dictionary = Game.players[p]
@@ -268,6 +284,7 @@ func _refresh_chars() -> void:
 			card["desc"].text = "¡Sorpresa! Se elige un luchador al azar."
 		else:
 			var d := CharacterData.get_data(id)
+			card["pic"].modulate = Color.WHITE
 			card["atlas"].atlas = load("res://assets/sprites/idle_%s.png" % id)
 			card["name"].text = d["name"]
 			card["name"].add_theme_color_override("font_color", col)
@@ -282,6 +299,32 @@ func _refresh_chars() -> void:
 		card["mode"].text = "CPU  ◄ %s ►" % Game.LEVEL_NAMES[cfg.get("level", 1)] if cfg["cpu"] else "HUMANO"
 		card["ready"].visible = _ready_flags[p]
 		card["style"].border_color = UI.GOOD if _ready_flags[p] else UI.P_COLORS[p]
+
+
+func _refresh_dummy_card() -> void:
+	Game.players[1]["char"] = "iluna"
+	Game.players[1]["cpu"] = true
+	var card: Dictionary = _cards[1]
+	var badge: PanelContainer = _badges[1]
+	badge.visible = false
+	card["atlas"].atlas = load("res://assets/sprites/idle_ilunna.png")
+	card["pic"].modulate = Color(1.0, 0.72, 0.5)
+	card["pic"].visible = true
+	card["q"].visible = false
+	card["glow"].color = Color(1, 0.55, 0.3, 0.12)
+	card["who"].text = "MUÑECO DE PRUEBA"
+	card["name"].text = "ILUNA"
+	card["name"].add_theme_color_override("font_color", Color(1, 0.6, 0.35))
+	card["desc"].text = "No ataca. En la partida eliges qué hace (quieto, agachado, saltar, caminar, escudo o pelear)."
+	for a in card["abil"].get_children():
+		a.queue_free()
+	var tips := ["T: reiniciar posición y daño", "Y: cambiar lo que hace ILUNA", "U: ulti infinita sí/no",
+		"El panel muestra golpes y daño de cada combo"]
+	for tip in tips:
+		card["abil"].add_child(UI.label("★ " + tip, 14, UI.TEXT))
+	card["mode"].text = "SIEMPRE LISTO"
+	card["ready"].visible = true
+	card["style"].border_color = UI.GOOD
 
 
 # ------------------------------------------------------------------
@@ -327,11 +370,11 @@ func _build_stage() -> void:
 		_add(card, Vector2(x, 100 + row * 240))
 		_stage_cards.append(card)
 	var rules := UI.panel(UI.CARD, 18)
-	_add(rules, Vector2(290, 588), Vector2(700, 0))
+	_add(rules, Vector2(190, 576), Vector2(900, 0))
 	_rules_label = UI.label("", 22, UI.TEXT, true)
 	_rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rules.add_child(_rules_label)
-	_centered("flechas / WASD elegir  ·  Q o - vidas  ·  G o . objetos sí/no  ·  ENTER ¡a pelear!  ·  ESC volver",
+	_centered("flechas / WASD elegir  ·  Q o - vidas  ·  G o . objetos  ·  E o L música  ·  ENTER ¡a pelear!  ·  ESC volver",
 		15, UI.MUTED, 668, false, 0)
 	_refresh_stage()
 
@@ -345,8 +388,12 @@ func _refresh_stage() -> void:
 		_stage_cards[i].modulate = Color.WHITE if sel else Color(0.72, 0.72, 0.82)
 		_stage_cards[i].z_index = 1 if sel else 0
 	Game.stage_id = "random" if _stage_sel == Game.STAGES.size() else Game.STAGES[_stage_sel]["id"]
-	_rules_label.text = "Vidas  ◄ %d ►      Objetos  %s      Modo  %s" % [Game.stocks,
-		"SÍ" if Game.items_on else "NO", Game.MODES[Game.mode]]
+	var track := "?"
+	for tr in Game.TRACKS:
+		if tr["id"] == Game.music_choice:
+			track = tr["name"]
+	_rules_label.text = "Vidas ◄ %d ►    Objetos %s    Modo %s\n♪ Música  ◄ %s ►" % [Game.stocks,
+		"SÍ" if Game.items_on else "NO", Game.MODES[Game.mode], track]
 
 
 # ------------------------------------------------------------------
@@ -354,9 +401,9 @@ func _refresh_stage() -> void:
 # ------------------------------------------------------------------
 func _build_settings() -> void:
 	_header("AJUSTES", "")
-	for i in 4:
+	for i in 5:
 		var l := UI.label("", 34, UI.TEXT, true, 6)
-		_add(l, Vector2(160, 180 + i * 90))
+		_add(l, Vector2(160, 150 + i * 84))
 		_set_rows.append(l)
 	_centered("↑ ↓  elegir     ← →  cambiar     ESC  volver", 18, UI.MUTED, 640, false, 0)
 	_centered("Nota: si juegas DENTRO del editor de Godot (pestaña Game), la pantalla completa solo funciona al ejecutar en ventana propia o con el juego exportado.",
@@ -371,7 +418,8 @@ func _bar(v: float) -> String:
 
 func _refresh_settings() -> void:
 	var texts := ["Música      " + _bar(Game.music_volume), "Efectos     " + _bar(Game.sfx_volume),
-		"Pantalla completa      %s" % ("SÍ" if Game.fullscreen else "NO"), "Volver"]
+		"Pantalla completa      %s" % ("SÍ" if Game.fullscreen else "NO"),
+		"Saltar con ARRIBA (W / ↑)      %s" % ("SÍ" if Game.tap_jump else "NO"), "Volver"]
 	for i in _set_rows.size():
 		_set_rows[i].text = ("▶  " if i == _set_sel else "    ") + texts[i]
 		_set_rows[i].add_theme_color_override("font_color", UI.ACCENT if i == _set_sel else UI.TEXT)
@@ -386,6 +434,8 @@ func _change_setting(dir: int) -> void:
 			Game.play_sfx("hit")
 		2:
 			Game.set_fullscreen(not Game.fullscreen)
+		3:
+			Game.tap_jump = not Game.tap_jump
 	Game.apply_settings()
 	Game.save_settings()
 	_refresh_settings()
@@ -399,12 +449,12 @@ func _build_controls() -> void:
 	var rows := [
 		["", "JUGADOR 1", "JUGADOR 2", "CONTROL"],
 		["Moverse (doble toque = correr)", "A  D", "←  →", "Stick"],
-		["Saltar / doble salto", "Espacio", "Enter", "A"],
+		["Saltar / doble salto", "Espacio o W", "Enter o ↑", "A"],
 		["Agacharse · caer rápido", "S", "↓", "Abajo"],
 		["Ataque  (tocar varias veces = combo)", "F", ",", "X"],
-		["Ataque + dirección (arriba/abajo/lado)", "W/S/A/D + F", "flechas + ,", "Stick + X"],
+		["Ataque + dirección (en el aire: ¡otros golpes!)", "W/S/A/D + F", "flechas + ,", "Stick + X"],
 		["Smash cargado (mantener)", "Mantener F", "Mantener ,", "Mantener X"],
-		["Especial · + arriba · + abajo · mantener", "G", ".", "B"],
+		["Especial · + arriba · + abajo (¡también en el aire!) · mantener", "G", ".", "B"],
 		["Escudo · + lado = rodar · + abajo = esquivar", "Q", "-", "LB / gatillos"],
 		["Esquiva en el aire", "Q en el aire", "- en el aire", "LB en el aire"],
 		["Lanzar objeto", "C", "J", "RB"],
@@ -440,7 +490,7 @@ func _process(delta: float) -> void:
 		at.region.position = Vector2(frame * Fighter.FRAME_W, 0)
 	if _screen == Screen.TITLE and _layer.has_node("Press"):
 		_layer.get_node("Press").modulate.a = 0.55 + 0.45 * sin(_t * 4.0)
-		_layer.get_node("Logo").position.y = 60 + sin(_t * 1.6) * 6.0
+		_layer.get_node("Logo").position.y = 30 + sin(_t * 1.6) * 5.0
 
 
 func _pressed(event: InputEvent, what: String) -> int:
@@ -491,16 +541,22 @@ func _input_main(event: InputEvent) -> void:
 		Game.play_sfx("menu_confirm")
 		match _main_sel:
 			0:
+				_restore_p2()
 				Game.mode = "classic"
 				_ready_flags = [false, false]
 				_show(Screen.CHARS)
 			1:
+				_restore_p2()
 				Game.mode = "cards"
 				_ready_flags = [false, false]
 				_show(Screen.CHARS)
-			2: _show(Screen.CONTROLS)
-			3: _show(Screen.SETTINGS)
-			4: get_tree().quit()
+			2:
+				Game.mode = "training"
+				_ready_flags = [false, true]
+				_show(Screen.CHARS)
+			3: _show(Screen.CONTROLS)
+			4: _show(Screen.SETTINGS)
+			5: get_tree().quit()
 	elif event.is_action_pressed("ui_back"):
 		Game.play_sfx("menu_back")
 		_show(Screen.TITLE)
@@ -509,12 +565,16 @@ func _input_main(event: InputEvent) -> void:
 func _input_chars(event: InputEvent) -> void:
 	var n := CharacterData.ORDER.size() + 1
 	var p := _pressed(event, "left")
+	if Game.mode == "training" and p == 1:
+		p = -1
 	if p >= 0 and not _ready_flags[p]:
 		_cursor[p] = (_cursor[p] + n - 1) % n
 		Game.play_sfx("menu_move")
 		_refresh_chars()
 		return
 	p = _pressed(event, "right")
+	if Game.mode == "training" and p == 1:
+		p = -1
 	if p >= 0 and not _ready_flags[p]:
 		_cursor[p] = (_cursor[p] + 1) % n
 		Game.play_sfx("menu_move")
@@ -522,6 +582,8 @@ func _input_chars(event: InputEvent) -> void:
 		return
 	p = _pressed(event, "attack")
 	if p >= 0:
+		if Game.mode == "training" and p == 1:
+			return
 		_ready_flags[p] = not _ready_flags[p]
 		Game.play_sfx("menu_confirm" if _ready_flags[p] else "menu_back")
 		_refresh_chars()
@@ -529,14 +591,14 @@ func _input_chars(event: InputEvent) -> void:
 			_show(Screen.STAGE)
 		return
 	p = _pressed(event, "special")
-	if p >= 0:
+	if p >= 0 and not (Game.mode == "training" and p == 1):
 		Game.players[p]["cpu"] = not Game.players[p]["cpu"]
 		Game.play_sfx("select")
 		_refresh_chars()
 		return
 	for dir in ["up", "down"]:
 		p = _pressed(event, dir)
-		if p >= 0 and Game.players[p]["cpu"]:
+		if p >= 0 and Game.players[p]["cpu"] and not (Game.mode == "training" and p == 1):
 			var lv: int = Game.players[p].get("level", 1)
 			Game.players[p]["level"] = clampi(lv + (1 if dir == "up" else -1), 0, 2)
 			Game.play_sfx("menu_move")
@@ -548,6 +610,7 @@ func _input_chars(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_back"):
 		Game.play_sfx("menu_back")
 		_ready_flags = [false, false]
+		_restore_p2()
 		_show(Screen.MAIN)
 
 
@@ -562,9 +625,21 @@ func _input_stage(event: InputEvent) -> void:
 	elif _any(event, "up") or _any(event, "down"):
 		_stage_sel = clampi(_stage_sel + (4 if _stage_sel < 4 else -4), 0, n - 1)
 		Game.play_sfx("menu_move")
-	elif _any(event, "shield") or _any(event, "ult"):
+	elif _any(event, "shield"):
 		Game.stocks = Game.stocks % 9 + 1
 		Game.play_sfx("menu_move")
+	elif _any(event, "ult") or _any(event, "taunt"):
+		# elegir la música (y escucharla un momento)
+		var ids: Array = Game.TRACKS.map(func(tr): return tr["id"])
+		var i := ids.find(Game.music_choice)
+		i = (i + (1 if _any(event, "ult") else ids.size() - 1)) % ids.size()
+		Game.music_choice = ids[i]
+		var preview: String = Game.music_choice
+		if preview == "auto":
+			preview = "menu" if _stage_sel == Game.STAGES.size() else Game.STAGES[_stage_sel]["music"]
+		if preview != "random":
+			Game.play_music(preview, 0.3)
+		Game.play_sfx("select")
 	elif _any(event, "special"):
 		Game.items_on = not Game.items_on
 		Game.play_sfx("select")
@@ -583,11 +658,11 @@ func _input_stage(event: InputEvent) -> void:
 
 func _input_settings(event: InputEvent) -> void:
 	if _any(event, "up"):
-		_set_sel = (_set_sel + 3) % 4
+		_set_sel = (_set_sel + 4) % 5
 		Game.play_sfx("menu_move")
 		_refresh_settings()
 	elif _any(event, "down"):
-		_set_sel = (_set_sel + 1) % 4
+		_set_sel = (_set_sel + 1) % 5
 		Game.play_sfx("menu_move")
 		_refresh_settings()
 	elif _any(event, "left"):
@@ -595,7 +670,7 @@ func _input_settings(event: InputEvent) -> void:
 	elif _any(event, "right"):
 		_change_setting(1)
 	elif event.is_action_pressed("ui_start") or _any(event, "attack"):
-		if _set_sel == 3:
+		if _set_sel == 4:
 			Game.play_sfx("menu_back")
 			_show(Screen.MAIN)
 		else:

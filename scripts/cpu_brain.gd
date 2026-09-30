@@ -139,8 +139,8 @@ func think(f: Fighter, delta: float) -> void:
 	if f.ult_meter >= Fighter.ULT_MAX and randf() < 0.04 + level * 0.05:
 		var ok := true
 		match f.char_id:
-			"rojo": ok = absf(d.y) < 70.0
-			"verde": ok = t.is_on_floor() and f.is_on_floor()
+			"schizov": ok = dist < 500.0
+			"lamont": ok = t.percent < 120.0 or f.percent > 40.0
 		if ok:
 			face_target.call()
 			f.in_ult_pressed = true

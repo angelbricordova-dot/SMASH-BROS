@@ -5,8 +5,8 @@ config_version=5
 
 [application]
 
-config/name="Super Brawl"
-config/description="Juego de peleas de plataformas estilo Smash Bros"
+config/name="Boulevard Smash"
+config/description="Boulevard Smash: juego de peleas de plataformas estilo Smash Bros"
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"

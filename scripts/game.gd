@@ -7,18 +7,32 @@ const SETTINGS_FILE := "user://ajustes.cfg"
 
 ## Mapas disponibles. Para agregar uno: crea su escena en scenes/stages/ y añádelo aquí.
 const STAGES := [
-	{"id": "pradera", "name": "Pradera", "desc": "El clásico: suelo con 3 plataformas.", "music": "battle1",
+	{"id": "pradera", "name": "Pradera", "desc": "El clásico: suelo con 3 plataformas.", "music": "boulevard",
 		"ambience": "pollen"},
-	{"id": "cosmos", "name": "Destino Cósmico", "desc": "Plano y sin plataformas. Solo habilidad.", "music": "battle2",
+	{"id": "cosmos", "name": "Destino Cósmico", "desc": "Plano y sin plataformas. Solo habilidad.", "music": "neon",
 		"ambience": "stars"},
-	{"id": "ciudad", "name": "Azotea", "desc": "Plataforma móvil y vigas a los lados.", "music": "battle1",
+	{"id": "ciudad", "name": "Azotea", "desc": "Plataforma móvil y vigas a los lados.", "music": "asfalto",
 		"ambience": "lights"},
-	{"id": "volcan", "name": "Volcán", "desc": "Plataformas que suben y bajan sobre la lava.", "music": "battle2",
+	{"id": "volcan", "name": "Volcán", "desc": "Plataformas que suben y bajan sobre la lava.", "music": "fuego",
 		"ambience": "embers"},
-	{"id": "bosque", "name": "Bosque Nocturno", "desc": "Plataformas en escalera bajo la luna.", "music": "battle1",
+	{"id": "bosque", "name": "Bosque Nocturno", "desc": "Plataformas en escalera bajo la luna.", "music": "neon",
 		"ambience": "fireflies"},
-	{"id": "nieve", "name": "Cumbre Nevada", "desc": "Suelo angosto y plataformas de hielo.", "music": "battle2",
+	{"id": "nieve", "name": "Cumbre Nevada", "desc": "Suelo angosto y plataformas de hielo.", "music": "asfalto",
 		"ambience": "snow"},
+]
+
+## Canciones que se pueden elegir al escoger escenario (archivos en assets/music/<id>.ogg).
+## "auto" = la que tiene asignada el escenario.
+const TRACKS := [
+	{"id": "auto", "name": "Automática (la del escenario)"},
+	{"id": "boulevard", "name": "Rock del Boulevard"},
+	{"id": "asfalto", "name": "Asfalto (hard rock)"},
+	{"id": "fuego", "name": "Fuego Cruzado (metal)"},
+	{"id": "neon", "name": "Noches de Neón (synth rock)"},
+	{"id": "chaos", "name": "Caos Total (punk)"},
+	{"id": "training", "name": "Calentando (funk)"},
+	{"id": "menu", "name": "Boulevard de Noche (lo-fi)"},
+	{"id": "random", "name": "Aleatoria"},
 ]
 
 ## Todos los efectos de sonido (archivos en assets/sounds/<nombre>.wav)
@@ -29,10 +43,12 @@ const SFX := [
 	"zap", "thunder", "laser", "laser_big", "explosion", "magic", "counter", "hover", "bow_draw", "bow_shoot",
 	"arrow_hit", "pickup", "item_spawn", "throw", "heal", "star", "fuse", "boomerang", "taunt", "menu_move",
 	"select", "menu_confirm", "menu_back", "card_show", "card_pick", "countdown", "start", "go", "fanfare", "cheer",
+	"gunshot", "reload", "slap", "fish", "mic", "flour", "paper", "bus_horn", "lie", "cash", "final_hit", "cloth",
+	"powerup", "bread", "angry",
 ]
 
 const LEVEL_NAMES := ["FÁCIL", "NORMAL", "DIFÍCIL"]
-const MODES := {"classic": "CLÁSICO", "cards": "CAOS DE CARTAS"}
+const MODES := {"classic": "CLÁSICO", "cards": "CAOS DE CARTAS", "training": "ENTRENAMIENTO"}
 
 ## Configuración de la partida actual (el menú la modifica).
 var players: Array = [
@@ -42,16 +58,20 @@ var players: Array = [
 var stocks := 3
 var items_on := true
 var stage_id := "pradera"
-var mode := "classic"         # "classic" o "cards"
+var mode := "classic"         # "classic", "cards" o "training"
+var music_choice := "auto"    # canción elegida en la pantalla de escenario (ver TRACKS)
 var preview_mode := false
 var match_setup := {}
 
 ## Ajustes (se guardan en el disco)
 var music_volume := 0.7
+var tap_jump := true          # saltar también con ARRIBA (W / flecha arriba)
 var sfx_volume := 0.9
 var fullscreen := false
 
 var font_title: Font
+var font_logo: Font          # Bungee: letras de cartel (logo, carteles grandes)
+var font_tag: Font           # Permanent Marker: estilo grafiti
 var font_body: Font
 
 var _sfx := {}
@@ -92,6 +112,8 @@ func _setup_buses() -> void:
 
 func _setup_fonts() -> void:
 	font_title = load("res://assets/fonts/LilitaOne-Regular.ttf")
+	font_logo = load("res://assets/fonts/Bungee-Regular.ttf")
+	font_tag = load("res://assets/fonts/PermanentMarker-Regular.ttf")
 	var body := FontVariation.new()
 	body.base_font = load("res://assets/fonts/Nunito-Variable.ttf")
 	body.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 800}
@@ -111,6 +133,7 @@ func load_settings() -> void:
 		music_volume = cfg.get_value("audio", "music", music_volume)
 		sfx_volume = cfg.get_value("audio", "sfx", sfx_volume)
 		fullscreen = cfg.get_value("video", "fullscreen", fullscreen)
+		tap_jump = cfg.get_value("controls", "tap_jump", tap_jump)
 	apply_settings()
 
 
@@ -119,6 +142,7 @@ func save_settings() -> void:
 	cfg.set_value("audio", "music", music_volume)
 	cfg.set_value("audio", "sfx", sfx_volume)
 	cfg.set_value("video", "fullscreen", fullscreen)
+	cfg.set_value("controls", "tap_jump", tap_jump)
 	cfg.save(SETTINGS_FILE)
 
 
@@ -195,6 +219,20 @@ func get_stage(id: String) -> Dictionary:
 		if s["id"] == id:
 			return s
 	return STAGES[0]
+
+
+## La canción que suena en un escenario según lo elegido en el menú.
+func battle_track(sid: String) -> String:
+	var choice := music_choice
+	if choice == "random":
+		choice = TRACKS[1 + randi() % (TRACKS.size() - 2)]["id"]
+	if choice != "auto":
+		return choice
+	if mode == "cards":
+		return "chaos"
+	if mode == "training":
+		return "training"
+	return get_stage(sid)["music"]
 
 
 func stage_scene(id: String) -> String:
@@ -282,6 +320,10 @@ func _register_controls() -> void:
 	_joy_button("ui_start", -1, JOY_BUTTON_START)
 	_add_key("ui_back", KEY_ESCAPE)
 	_add_key("ui_back", KEY_BACKSPACE)
+	# modo Entrenamiento
+	_add_key("train_reset", KEY_T)
+	_add_key("train_mode", KEY_Y)
+	_add_key("train_ult", KEY_U)
 
 
 func _player_keys(pl: int, keys: Dictionary) -> void:

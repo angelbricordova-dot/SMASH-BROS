@@ -1,5 +1,5 @@
 """
-Generador de audio del juego: efectos de sonido (WAV) y música (OGG en bucle).
+Generador de audio del juego: efectos de sonido (WAV). La música (OGG) la hace tools/make_music.py.
 
 Uso:
     pip install numpy scipy soundfile
@@ -328,6 +328,47 @@ def make_sfx():
     S("go", reverb(mix(punch(1.0) * 0.8, stab * 0.35), 1.4, 0.3))
     S("fanfare", make_fanfare())
     S("cheer", make_crowd(3.0))
+    # --- Boulevard Smash: sonidos de los personajes nuevos
+    # pistola de Lamont: chasquido + estampido + eco corto
+    shot = mix(click(0.004, 2000, 12000), filt(noise(0.25), "band", (300, 6000)) * env_exp(0.25, 28) * 1.2,
+               thump(180, 60, 0.12, 30) * 0.7)
+    S("gunshot", reverb(drive(shot, 3.0), 0.6, 0.18))
+    S("reload", mix(click(0.01, 1500, 6000), at(click(0.012, 800, 4000) * 0.8, 0.07),
+                    at(partials([1900, 3100], 0.12, [40, 50]) * 0.4, 0.07)))
+    # cachetada: palmada seca con cuerpo
+    slap = mix(filt(noise(0.12), "band", (700, 5000)) * env_exp(0.12, 45) * 1.3, thump(220, 120, 0.06, 50) * 0.6)
+    S("slap", reverb(slap, 0.4, 0.12))
+    # pez: golpe mojado
+    S("fish", mix(filt(noise(0.3, "pink"), "band", (150, 1800)) * env_exp(0.3, 16) * 1.2,
+                  osc(glide(320, 120, 0.2), 0.2) * env_exp(0.2, 18) * 0.5,
+                  at(crackle(0.2, 200, 1500, 6000) * 0.4, 0.02)))
+    # micrófono: acople (pitido) que se cae + "golpe" en el micro
+    t_ = t_arr(0.5)
+    fb = osc(glide(2600, 2200, 0.5), 0.5) * env_ad(0.5, 0.05, 1.0) * (0.6 + 0.4 * np.sin(t_ * 40))
+    S("mic", reverb(mix(fb * 0.35, thump(140, 60, 0.15, 18) * 0.8, filt(noise(0.1), "low", 1500) * env_exp(0.1, 30)),
+                    0.8, 0.25))
+    S("flour", mix(filt(noise(0.5, "pink"), "band", (400, 6000)) * env_swell(0.5, 0.15) * 0.9, whoosh(0.4, 600, 3000)))
+    # revistas: páginas que aletean
+    pages = mix(*[at(filt(noise(0.05), "band", (1500, 7000)) * env_exp(0.05, 60) * 0.7, i * 0.035) for i in range(9)])
+    S("paper", mix(pages, whoosh(0.3, 800, 3000, 3, 0.3) * 0.5))
+    # bocina de guagua (dos notas graves)
+    horn = sum(osc(f, 0.7, "saw") for f in (233, 294, 350)) * env_ad(0.7, 0.02, 0.4) * 0.3
+    S("bus_horn", reverb(filt(drive(horn, 2.0), "low", 2500), 0.8, 0.2))
+    # mentira: "boing" gracioso
+    S("lie", mix(osc(glide(300, 900, 0.25), 0.25) * env_exp(0.25, 6) * 0.5, at(chime([79, 74, 70], 0.06, 0.4, 8) * 0.4, 0.1)))
+    # caja registradora (préstamo)
+    S("cash", reverb(mix(click(0.01, 2000, 8000), at(partials([2637, 3520, 5274], 0.9, [3, 4, 5]) * 0.6, 0.05),
+                         at(crackle(0.3, 300, 3000, 9000) * 0.4, 0.1)), 0.8, 0.25))
+    S("cloth", mix(whoosh(0.4, 200, 1800, 2.0, 0.5), filt(noise(0.4, "pink"), "band", (300, 3000)) * env_swell(0.4, 0.3) * 0.5))
+    S("powerup", reverb(mix(osc(glide(200, 800, 0.8), 0.8, "saw") * env_ad(0.8, 0.6, 0.5) * 0.25,
+                            chime([72, 76, 79, 84, 88, 91], 0.07, 0.9, 4) * 0.6), 1.2, 0.3))
+    S("bread", mix(thump(260, 140, 0.1, 30) * 0.8, filt(noise(0.1, "pink"), "band", (500, 3000)) * env_exp(0.1, 35)))
+    S("angry", mix(osc(glide(140, 90, 0.6), 0.6, "saw") * env_ad(0.6, 0.05, 0.6) * 0.3,
+                   filt(noise(0.6, "brown"), "low", 700) * env_swell(0.6, 0.2)))
+    # golpe final: impacto enorme + cristal + cola larga
+    fin = mix(punch(1.0) * 1.2, thump(80, 25, 1.2, 3) * 1.4, glass(0.8, 30, 3000) * 0.4,
+              filt(noise(1.5, "brown"), "low", 500) * env_exp(1.5, 2.5) * 0.8)
+    S("final_hit", reverb(drive(fin, 2.2), 2.0, 0.4))
 
 
 def S_fire_short():
@@ -370,7 +411,7 @@ def make_fanfare():
 
 
 # ======================================================================
-#  Música
+#  Piezas de batería (las usa la fanfarria). La música está en tools/make_music.py
 # ======================================================================
 def note_f(n):
     return 440.0 * 2 ** ((n - 69) / 12)
@@ -384,168 +425,11 @@ def snare(dur=0.25):
     return mix(filt(noise(dur), "band", (1500, 8000)) * env_exp(dur, 16) * 0.8, osc(190, dur) * env_exp(dur, 25) * 0.5)
 
 
-def clap(dur=0.2):
-    x = np.zeros(int(SR * dur))
-    for d in (0.0, 0.01, 0.02):
-        c = filt(noise(0.15), "band", (900, 4000)) * env_exp(0.15, 30)
-        s = int(d * SR)
-        x[s:s + len(c)] += c[: len(x) - s]
-    return x * 0.7
-
-
-def hat(dur=0.05, open_=False):
-    d = 0.25 if open_ else dur
-    return filt(noise(d), "high", 7000) * env_exp(d, 12 if open_ else 70) * 0.35
-
-
-def synth(freq, dur, kind="saw", cutoff=2500, detune=0.006, attack=0.005, release=2.0, voices=2):
-    n = int(SR * (dur + 0.05))
-    v = np.zeros(n)
-    for i in range(voices):
-        d = 1 + detune * (i - (voices - 1) / 2)
-        v += osc(freq * d, dur + 0.05, kind, rng.random())
-    v = filt(v / voices, "low", cutoff)
-    return v * env_ad(dur + 0.05, attack, release)
-
-
-def render_track(bpm, bars, parts, key_drums):
-    beat = 60 / bpm
-    total = bars * 4 * beat
-    tail = 2.0
-    L = int(SR * (total + tail))
-    bus = {k: np.zeros(L) for k in ("drums", "bass", "pad", "lead", "arp")}
-
-    def put(name, x, time):
-        s = int(time * SR)
-        e = min(L, s + len(x))
-        bus[name][s:e] += x[: e - s]
-
-    parts(put, beat, bars)
-    key_drums(put, beat, bars)
-    # "sidechain": los pads bajan con cada bombo
-    side = np.ones(L)
-    for b in range(bars * 4):
-        s = int(b * beat * SR)
-        k = int(0.25 * beat * SR * 2)
-        side[s:s + k] = np.minimum(side[s:s + k], 0.35 + 0.65 * np.linspace(0, 1, len(side[s:s + k])) ** 0.7)
-    m = (bus["drums"] * 1.0 + bus["bass"] * 0.8 + bus["pad"] * 0.45 * side + bus["arp"] * 0.35 * side
-         + bus["lead"] * 0.45)
-    # eco en la melodía
-    echo = np.zeros(L)
-    d = int(beat * 0.75 * SR)
-    echo[d:] = bus["lead"][:-d] * 0.3 + bus["arp"][:-d] * 0.15
-    m += echo
-    # envolver la cola al principio para que el bucle sea perfecto
-    n = int(total * SR)
-    out = m[:n].copy()
-    out[: L - n] += m[n:]
-    out = np.tanh(out / (np.max(np.abs(out)) + 1e-9) * 1.4) * 0.85
-    # estéreo simple (retraso en un canal para dar amplitud)
-    right = np.roll(out, int(0.012 * SR)) * 0.9 + out * 0.1
-    return np.stack([out, right], axis=1)
-
-
-def std_drums(pattern):
-    def f(put, beat, bars):
-        for bar in range(bars):
-            b0 = bar * 4 * beat
-            for step in range(16):
-                t = b0 + step * beat / 4
-                if pattern["kick"][step] == "x":
-                    put("drums", kick(), t)
-                if pattern["snare"][step] == "x":
-                    put("drums", mix(snare(), clap() * 0.5), t)
-                if pattern["hat"][step] == "x":
-                    put("drums", hat(), t)
-                if pattern["hat"][step] == "o":
-                    put("drums", hat(open_=True), t)
-            if bar % 4 == 3:  # redoble al final de cada frase
-                for s in range(12, 16):
-                    put("drums", snare(0.12) * 0.6, b0 + s * beat / 4)
-    return f
-
-
-def chord_parts(prog, bass_oct=36, pad_oct=60, lead=None, arp_pattern=(0, 1, 2, 1), arp_div=4, lead_kind="square"):
-    def f(put, beat, bars):
-        for bar in range(bars):
-            root, quality = prog[bar % len(prog)]
-            ints = [0, 3, 7] if quality == "m" else [0, 4, 7]
-            b0 = bar * 4 * beat
-            # bajo en corcheas
-            for i in range(8):
-                n = bass_oct + root + (12 if i % 4 == 3 else 0)
-                put("bass", synth(note_f(n), beat / 2 * 0.9, "saw", 700, 0.004, release=3), b0 + i * beat / 2)
-            # pad
-            for iv in ints + [12]:
-                put("pad", synth(note_f(pad_oct + root + iv), 4 * beat, "saw", 1800, 0.01, attack=0.3, release=0.8,
-                                 voices=3), b0)
-            # arpegio
-            steps = 4 * arp_div
-            for i in range(steps):
-                iv = (ints + [12])[arp_pattern[i % len(arp_pattern)]]
-                put("arp", synth(note_f(pad_oct + 12 + root + iv), beat / arp_div * 0.8, "square", 3500, 0.0,
-                                 release=3, voices=1), b0 + i * beat / arp_div)
-        if lead:
-            pos = 0.0
-            for n, b in lead:
-                if n is not None:
-                    put("lead", synth(note_f(n), b * beat * 0.95, lead_kind, 3200, 0.004, attack=0.01, release=1.2),
-                        pos * beat)
-                pos += b
-    return f
-
-
-def write_ogg(name, data):
-    """Escribe OGG por bloques (libsndfile falla con bloques muy grandes)."""
-    data = np.ascontiguousarray(data.astype(np.float32))
-    with sf.SoundFile(os.path.join(MUSIC_DIR, name), "w", SR, data.shape[1], format="OGG", subtype="VORBIS") as f:
-        for i in range(0, len(data), 4096):
-            f.write(data[i:i + 4096])
-
-
-def make_music():
-    os.makedirs(MUSIC_DIR, exist_ok=True)
-    # --- Menú: tranquilo y pegajoso (100 bpm, La menor)
-    prog = [(9, "m"), (5, ""), (0, ""), (7, "")]
-    lead = []
-    phrase = [(76, 1), (79, 1), (81, 1.5), (79, 0.5), (76, 2), (None, 2), (74, 1), (76, 1), (72, 2), (None, 4)]
-    for _ in range(4):
-        lead += phrase
-    menu = render_track(100, 16, chord_parts(prog, lead=lead, arp_pattern=(0, 2, 1, 3, 2, 1), arp_div=2,
-                                             lead_kind="tri"),
-                        std_drums({"kick": "x.......x.x.....", "snare": "....x.......x...", "hat": "..x...x...x...xo"}))
-    write_ogg("menu.ogg", menu)
-    # --- Batalla 1: enérgica (140 bpm, Mi menor)
-    prog = [(4, "m"), (0, ""), (7, ""), (2, "")]
-    riff = [(76, 0.5), (79, 0.5), (83, 1), (81, 0.5), (79, 0.5), (76, 1), (74, 0.5), (76, 0.5), (79, 1.5), (None, 1.5),
-            (76, 0.5), (79, 0.5), (83, 1), (86, 1), (84, 0.5), (83, 0.5), (81, 2), (None, 2)]
-    battle1 = render_track(140, 32, chord_parts(prog, bass_oct=28, pad_oct=52, lead=riff * 8,
-                                                 arp_pattern=(0, 1, 2, 3), arp_div=4, lead_kind="saw"),
-                           std_drums({"kick": "x...x...x...x...", "snare": "....x.......x...", "hat": "x.x.x.x.x.x.x.xo"}))
-    write_ogg("battle1.ogg", battle1)
-    # --- Batalla 2: épica (128 bpm, Re menor)
-    prog = [(2, "m"), (10, ""), (5, ""), (0, "")]
-    riff = [(74, 1), (77, 1), (81, 1), (79, 0.5), (77, 0.5), (76, 2), (72, 2), (74, 1.5), (76, 0.5), (77, 1), (81, 1),
-            (84, 2), (82, 1), (81, 1)]
-    battle2 = render_track(128, 32, chord_parts(prog, bass_oct=26, pad_oct=50, lead=riff * 8,
-                                                 arp_pattern=(0, 2, 3, 2, 1, 2), arp_div=4, lead_kind="square"),
-                           std_drums({"kick": "x..x..x.x..x..x.", "snare": "....x.......x...", "hat": "..x...x...x...x."}))
-    write_ogg("battle2.ogg", battle2)
-    # --- Caos: rápida y loca (156 bpm, Fa# menor)
-    prog = [(6, "m"), (2, ""), (9, ""), (4, "")]
-    riff = [(78, 0.5), (81, 0.5), (85, 0.5), (81, 0.5), (78, 0.5), (85, 0.5), (86, 1), (85, 0.5), (83, 0.5), (81, 0.5),
-            (78, 0.5), (76, 1), (None, 1)]
-    chaos = render_track(156, 32, chord_parts(prog, bass_oct=30, pad_oct=54, lead=riff * 16,
-                                               arp_pattern=(0, 1, 2, 3, 2, 1), arp_div=4, lead_kind="saw"),
-                         std_drums({"kick": "x...x...x...x.x.", "snare": "....x..x....x...", "hat": "xxxxxxxxxxxxxxxo"}))
-    write_ogg("chaos.ogg", chaos)
-
-
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "all"
     if what in ("all", "sfx"):
         make_sfx()
         print("Efectos generados en", os.path.abspath(SFX_DIR))
     if what in ("all", "music"):
-        make_music()
-        print("Música generada en", os.path.abspath(MUSIC_DIR))
+        import make_music as music_rock    # la música de Boulevard Smash está en tools/make_music.py
+        music_rock.main(list(music_rock.SONGS))

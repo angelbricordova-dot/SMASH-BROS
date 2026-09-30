@@ -73,6 +73,9 @@ var drop_timer := 0.0
 var landing_lag := 0.0
 var floor_collider: Object = null
 var vanished := false
+var form := ""
+var confused_time := 0.0      # "mentiras" de Abnielito: controles al revés
+var _tap_jump_t := -1.0
 
 var invincible_time := 0.0
 var intangible_time := 0.0
@@ -87,6 +90,9 @@ var flip_t := 0.0
 var parry_flash := 0.0
 var hit_flash := 0.0
 var frozen_time := 0.0
+var tint := Color.WHITE       # color extra (por ejemplo, roja de rabia)
+var hit_shake := 0.0          # temblor al recibir un golpe (durante el "hitlag")
+var trail_color := Color.WHITE
 var shield_hp := BASE_SHIELD
 var shield_flash := 0.0
 var shield_break_time := 0.0
@@ -186,7 +192,7 @@ func _ready() -> void:
 	add_child(_shape)
 	sprite = AnimatedSprite2D.new()
 	sprite.sprite_frames = _build_frames()
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	add_child(sprite)
 	sprite.play("idle")
 	overlay = Node2D.new()
@@ -212,12 +218,19 @@ func _ready() -> void:
 
 
 static var _frames_cache := {}
+static var _meta_cache := {}
 
 
-func _build_frames() -> SpriteFrames:
-	if _frames_cache.has(char_id):
-		return _frames_cache[char_id]
-	var tex: Texture2D = load("res://assets/sprites/char_%s.png" % char_id)
+## Id de los dibujos (el muñeco Iluna usa los de Ilunna).
+func sprite_id() -> String:
+	return data.get("sprite", char_id)
+
+
+func _build_frames(f := "") -> SpriteFrames:
+	var key := sprite_id() + ("_" + f if f != "" else "")
+	if _frames_cache.has(key):
+		return _frames_cache[key]
+	var tex: Texture2D = load("res://assets/sprites/char_%s.png" % key)
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default")
 	for row in ANIMS.size():
@@ -230,8 +243,51 @@ func _build_frames() -> SpriteFrames:
 			at.atlas = tex
 			at.region = Rect2(col * FRAME_W, row * FRAME_H, FRAME_W, FRAME_H)
 			sf.add_frame(a[0], at)
-	_frames_cache[char_id] = sf
+	_frames_cache[key] = sf
 	return sf
+
+
+## Dónde está la mano / la cabeza en cada cuadro (lo calcula tools/import_sheets.py).
+func sprite_meta() -> Dictionary:
+	var id := sprite_id()
+	if not _meta_cache.has(id):
+		var meta := {}
+		var path := "res://assets/sprites/char_%s.json" % id
+		if FileAccess.file_exists(path):
+			var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+			if parsed is Dictionary:
+				meta = parsed
+		_meta_cache[id] = meta
+	return _meta_cache[id]
+
+
+## Punto de la mano (o "heads" para la cabeza) en coordenadas locales. z = ángulo del brazo (grados).
+func body_point(kind := "hands") -> Vector3:
+	var meta := sprite_meta()
+	var list: Array = meta.get(kind, {}).get(sprite.animation, [])
+	if list.is_empty():
+		return Vector3(16, -50, 60) if kind == "hands" else Vector3(0, -92, 0)
+	var p: Array = list[clampi(sprite.frame, 0, list.size() - 1)]
+	var k := size_k()
+	var off := Vector2(float(p[0]) * facing * squash.x, float(p[1]) * squash.y) * k
+	if sprite.rotation != 0.0:
+		off = sprite.position + (off - sprite.position).rotated(sprite.rotation)
+	return Vector3(off.x, off.y, float(p[2]) if p.size() > 2 else 0.0)
+
+
+## Cambia de "forma" (la ulti de Ilunna y Panadero usan otros dibujos). "" = normal.
+func set_form(f: String) -> void:
+	if form == f:
+		return
+	form = f
+	var anim := sprite.animation
+	var fr := sprite.frame
+	var playing := sprite.is_playing()
+	sprite.sprite_frames = _build_frames(f)
+	sprite.animation = anim
+	sprite.frame = fr
+	if playing:
+		sprite.play(anim)
 
 
 static func anim_frames(anim_name: String) -> int:
@@ -353,7 +409,7 @@ func spawn_projectile(p: Dictionary) -> Projectile:
 	for k in p:
 		proj.set(k, p[k])
 	if not p.has("texture"):
-		proj.texture = load("res://assets/sprites/proj_%s.png" % char_id)
+		proj.texture = load("res://assets/sprites/proj_%s.png" % sprite_id())
 	if proj.info.has("dmg"):
 		proj.info["dmg"] = proj.info["dmg"] * mods["dmg"] * mods["special_dmg"]
 	get_parent().add_child(proj)
@@ -385,6 +441,7 @@ func begin_action(action_name: String) -> void:
 
 
 func end_action(helpless_after := false) -> void:
+	tint = Color.WHITE
 	if action.begins_with("ult_"):
 		invincible_time = minf(invincible_time, 0.25)
 	state = State.NORMAL
@@ -476,6 +533,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_poll_input(delta)
 	_tick(delta)
+	char_tick(delta)
 
 	if hitlag > 0.0:
 		hitlag -= delta
@@ -521,6 +579,7 @@ func _tick(delta: float) -> void:
 	hit_flash = maxf(0.0, hit_flash - delta)
 	shield_flash = maxf(0.0, shield_flash - delta)
 	flip_t = maxf(0.0, flip_t - delta)
+	confused_time = maxf(0.0, confused_time - delta)
 	combo_window = maxf(0.0, combo_window - delta)
 	if star_time > 0.0:
 		star_time -= delta
@@ -566,6 +625,29 @@ func _poll_input(delta: float) -> void:
 		in_ult_pressed = Input.is_action_just_pressed(p + "ult")
 		in_taunt_pressed = Input.is_action_just_pressed(p + "taunt")
 		in_throw_pressed = Input.is_action_just_pressed(p + "throw")
+		# saltar con ARRIBA (W / flecha arriba). Se espera un instante: si justo después pulsas
+		# ATAQUE o ESPECIAL, no salta (así ARRIBA+ATAQUE y ARRIBA+ESPECIAL siguen funcionando).
+		if Game.tap_jump:
+			if Input.is_action_just_pressed(p + "up") and state != State.LEDGE:
+				_tap_jump_t = 0.0
+			if _tap_jump_t >= 0.0:
+				_tap_jump_t += delta
+				if in_attack_pressed or in_special_pressed or in_shield:
+					_tap_jump_t = -1.0
+				elif _tap_jump_t >= 0.05:
+					_tap_jump_t = -1.0
+					in_jump_pressed = true
+			if in_up and not in_jump_held:
+				in_jump_held = true
+	# "mentiras" de Abnielito: izquierda <-> derecha y arriba <-> abajo
+	if confused_time > 0.0:
+		in_move = -in_move
+		var u := in_up
+		in_up = in_down
+		in_down = u
+		var l := in_left_pressed
+		in_left_pressed = in_right_pressed
+		in_right_pressed = l
 
 	since_tap[-1] += delta
 	since_tap[1] += delta
@@ -1125,6 +1207,11 @@ func try_counter(_attacker: Fighter, _info: Dictionary) -> bool:
 	return false
 
 
+## Se llama cada cuadro (para mejoras temporales de las ultis, etc.).
+func char_tick(_delta: float) -> void:
+	pass
+
+
 ## Lo reemplazan los personajes para programar sus acciones.
 func char_action(action_name: String, t: float, delta: float) -> void:
 	match action_name:
@@ -1271,9 +1358,13 @@ func _state_hitstun(delta: float) -> void:
 		if absf(in_move) > 0.1:
 			velocity.x += in_move * 320.0 * delta
 		apply_gravity(delta, 0.8)
-		if spin > 0.0 and velocity.length() > 500.0 and Engine.get_physics_frames() % 2 == 0:
-			Effects.burst(get_parent(), global_position + Vector2(0, -38), {"count": 1, "color": Color(1, 1, 1, 0.6),
-				"speed": 10.0, "life": 0.4, "size": 7.0})
+		var spd := velocity.length()
+		if spd > 420.0 and Engine.get_physics_frames() % 2 == 0:
+			# estela de humo al salir volando (más grande y de color cuanto más fuerte)
+			var big := clampf((spd - 420.0) / 700.0, 0.0, 1.0)
+			Effects.burst(get_parent(), global_position + Vector2(0, -38), {"count": 1 + int(big * 2.0),
+				"color": Color(1, 1, 1, 0.55).lerp(Color(trail_color, 0.8), big), "speed": 20.0, "life": 0.35 + big * 0.3,
+				"size": 6.0 + big * 8.0, "grow": true})
 	var early := hitstun < hitstun_total * 0.3 and (jump_buffer > 0.0 or special_buffer > 0.0 or attack_buffer > 0.0)
 	if hitstun <= 0.0 or early:
 		state = State.NORMAL
@@ -1380,6 +1471,7 @@ func apply_hit(attacker: Fighter, info: Dictionary) -> bool:
 	if state == State.ACTION:
 		action = ""
 		vanished = false
+		tint = Color.WHITE
 	attack_hold_t = -1.0
 	special_hold_t = -1.0
 	charging = false
@@ -1387,7 +1479,9 @@ func apply_hit(attacker: Fighter, info: Dictionary) -> bool:
 	hitstun = clampf(0.1 + kb * 0.00032, 0.1, 0.95)
 	hitstun_total = hitstun
 	pending_velocity = launch
-	hitlag = clampf(0.035 + dmg * 0.0045, 0.04, 0.18)
+	hitlag = clampf(0.04 + dmg * 0.0055 + kb * 0.00004, 0.05, 0.24)
+	hit_shake = clampf(kb / 120.0, 1.5, 7.0)
+	trail_color = attacker.data["fx_color"] if attacker else Color(1, 1, 1)
 	if info.get("fx", "") == "elec":
 		hitlag += 0.05
 	if attacker and melee:
@@ -1422,9 +1516,45 @@ func apply_hit(attacker: Fighter, info: Dictionary) -> bool:
 		"ice": col = Color(0.7, 0.95, 1)
 		"shadow": col = Color(0.75, 0.4, 1)
 		"magic": col = Color(0.5, 1, 0.85)
-	Effects.hit(get_parent(), info["pos"], clampf(strength / 8.0, 0.4, 2.0), col, dir)
+	Effects.impact(get_parent(), info["pos"], clampf(strength / 8.0, 0.4, 2.2), col, dir, dmg)
 	hit_landed.emit(strength)
+	if _is_decisive() and _predicts_ko(launch):
+		var stage := get_parent()
+		if stage.has_method("final_blow"):
+			stage.final_blow(self, attacker, info["pos"])
 	return true
+
+
+## ¿Este golpe decide la partida? (última vida y solo queda un rival con vidas)
+func _is_decisive() -> bool:
+	if stocks != 1 or Game.mode == "training":
+		return false
+	var others := 0
+	for f in get_tree().get_nodes_in_group("fighters"):
+		if f != self and f.stocks > 0:
+			others += 1
+	return others == 1
+
+
+## Simula el vuelo tras el golpe: ¿saldrá de la zona de KO?
+func _predicts_ko(v: Vector2) -> bool:
+	var stage := get_parent()
+	var zone: Rect2 = stage.get("blast_zone") if stage.get("blast_zone") != null else Rect2(-1050, -900, 2100, 1800)
+	var p := global_position
+	var dt := 1.0 / 60.0
+	var g: float = stat("gravity") * 0.8
+	var hw: float = stage_info.get("half_width", 450.0)
+	var cx: float = stage_info.get("center_x", 0.0)
+	var gy: float = stage_info.get("ground_y", 200.0)
+	for i in 200:
+		v.x = move_toward(v.x, 0.0, 420.0 * dt)
+		v.y = minf(v.y + g * dt, stat("fall_speed"))
+		p += v * dt
+		if not zone.has_point(p):
+			return true
+		if v.y > 0.0 and p.y >= gy and absf(p.x - cx) < hw:
+			return false
+	return false
 
 
 ## Daño sin empuje (por ejemplo, mientras está congelado).
@@ -1609,7 +1739,7 @@ func _update_visuals(delta: float) -> void:
 		(FRAME_H / 2.0 - FEET_Y) * k * squash.y)
 	sprite.visible = not vanished
 
-	var col := Color.WHITE
+	var col := tint
 	if hit_flash > 0.0:
 		col = Color(2.2, 2.2, 2.2)
 	elif parry_flash > 0.0:
@@ -1627,6 +1757,8 @@ func _update_visuals(delta: float) -> void:
 	sprite.modulate = col
 
 	if hitlag > 0.0:
+		if state == State.HITSTUN and hit_shake > 0.0:
+			sprite.position += Vector2(randf_range(-1.0, 1.0), randf_range(-0.5, 0.5)) * hit_shake
 		return
 	var anim := ""
 	var speed := 1.0
@@ -1682,25 +1814,18 @@ func draw_overlay(ci: CanvasItem) -> void:
 		ci.draw_rect(Rect2(-44, 4, 88, 3), Color(1, 1, 1, 0.9))
 	if held_item != "" and not vanished and state != State.DEAD:
 		_draw_held_item(ci)
+	elif data.has("prop") and not vanished and state != State.DEAD and state != State.SHIELD_BREAK:
+		_draw_prop(ci)
+	if confused_time > 0.0 and not vanished:
+		# signos de interrogación dando vueltas: está confundido (controles al revés)
+		var font := Game.font_title if Game.font_title else ThemeDB.fallback_font
+		for i in 3:
+			var a := t * 3.0 + i * TAU / 3.0
+			var p := Vector2(cos(a) * 26.0, -118.0 * size_k() + sin(a) * 7.0)
+			ci.draw_string_outline(font, p - Vector2(8, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 16, 24, 6, Color(0, 0, 0, 0.8))
+			ci.draw_string(font, p - Vector2(8, 0), "?", HORIZONTAL_ALIGNMENT_CENTER, 16, 24, Color(1.0, 0.86, 0.3))
 	if state == State.SHIELD:
-		var k := clampf(shield_hp / max_shield(), 0.0, 1.0)
-		var r := (30.0 + 30.0 * k) * size_k()
-		var c := col.lerp(Color(1, 0.25, 0.2), 1.0 - k)
-		var alpha := 0.35 if k > 0.25 or fmod(t, 0.2) < 0.1 else 0.15
-		if shield_flash > 0.0:
-			c = c.lerp(Color.WHITE, 0.6)
-			alpha = 0.6
-		var center := Vector2(0, -40)
-		ci.draw_circle(center, r, Color(c.r, c.g, c.b, alpha))
-		ci.draw_arc(center, r, 0, TAU, 48, Color(1, 1, 1, 0.8), 2.0)
-		ci.draw_arc(center, r * 0.72, -2.4, -1.4, 12, Color(1, 1, 1, 0.4), 3.0)
-		var cracks := int((1.0 - k) * shield_cracks.size() * 1.1)
-		for i in mini(cracks, shield_cracks.size()):
-			var pts: PackedVector2Array = shield_cracks[i]
-			var scaled := PackedVector2Array()
-			for p in pts:
-				scaled.append(center + p * r)
-			ci.draw_polyline(scaled, Color(1, 1, 1, 0.9), 1.6)
+		_draw_shield(ci, t)
 	if state == State.SHIELD_BREAK:
 		for i in 3:
 			var a := t * 8.0 + i * TAU / 3.0
@@ -1717,7 +1842,7 @@ func draw_overlay(ci: CanvasItem) -> void:
 		charge = 0.0
 	elif bow_charge() > 0.0:
 		charge = bow_charge()
-	elif action.begins_with("charge") and act.has("charge"):
+	elif state == State.ACTION and act.has("charge") and not act.has("released"):
 		charge = act["charge"]
 	if charge >= 0.0:
 		var cc: Color = data["fx_color"] if charge < 1.0 else Color.WHITE
@@ -1736,10 +1861,82 @@ func draw_overlay(ci: CanvasItem) -> void:
 		return
 	var font := Game.font_title if Game.font_title else ThemeDB.fallback_font
 	var label := "CPU" if is_cpu else "P%d" % player_id
+	if char_id == "iluna":
+		label = "ILUNA"
 	var y := -112.0 * size_k()
 	ci.draw_string_outline(font, Vector2(-30, y), label, HORIZONTAL_ALIGNMENT_CENTER, 60, 18, 5, Color(0, 0, 0, 0.8))
 	ci.draw_string(font, Vector2(-30, y), label, HORIZONTAL_ALIGNMENT_CENTER, 60, 18, col)
 	ci.draw_colored_polygon(PackedVector2Array([Vector2(-6, y + 6), Vector2(6, y + 6), Vector2(0, y + 13)]), col)
+
+
+const PROP_TEX := {
+	"fish": preload("res://assets/sprites/prop_fish.png"), "mic": preload("res://assets/sprites/prop_mic.png"),
+	"pistol": preload("res://assets/sprites/prop_pistol.png"),
+}
+## Punto por donde se agarra cada objeto (en píxeles de su imagen).
+const PROP_GRIP := {"fish": Vector2(4, 11), "mic": Vector2(7, 28), "pistol": Vector2(9, 15)}
+static var _shield_tex: Texture2D
+
+
+## El objeto que lleva en la mano (pez, micrófono, pistola), siguiendo la mano de cada cuadro.
+func _draw_prop(ci: CanvasItem) -> void:
+	var kind: String = data["prop"]
+	var h := body_point("hands")
+	var ang := h.z
+	var rot := 0.0
+	match kind:
+		"mic":
+			rot = deg_to_rad(-absf(ang) + 90.0)     # hacia arriba con el brazo abajo, hacia delante al golpear
+		"fish":
+			rot = deg_to_rad(ang)
+		"pistol":
+			rot = deg_to_rad(clampf(ang, -70.0, 55.0))
+	var k := size_k() * 0.95
+	ci.draw_set_transform(Vector2(h.x, h.y), rot * facing, Vector2(facing, 1.0) * k)
+	ci.draw_texture(PROP_TEX[kind], -PROP_GRIP[kind])
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Escudo: una burbuja redonda y brillante que se encoge y se agrieta al recibir golpes.
+func _draw_shield(ci: CanvasItem, t: float) -> void:
+	if _shield_tex == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.55, 0.86, 0.97, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 0.08), Color(1, 1, 1, 0.16), Color(1, 1, 1, 0.5),
+			Color(1, 1, 1, 0.95), Color(1, 1, 1, 0.0)])
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(0.5, 0.5)
+		gt.fill_to = Vector2(1.0, 0.5)
+		gt.width = 128
+		gt.height = 128
+		_shield_tex = gt
+	var k := clampf(shield_hp / max_shield(), 0.0, 1.0)
+	var r := (34.0 + 30.0 * k) * size_k()
+	var base: Color = UI.P_COLORS[(player_id - 1) % UI.P_COLORS.size()]
+	var c := base.lerp(Color(1, 0.25, 0.2), (1.0 - k) * 0.7)
+	var alpha := 0.85 if k > 0.25 or fmod(t, 0.2) < 0.1 else 0.4
+	if shield_flash > 0.0:
+		c = c.lerp(Color.WHITE, 0.7)
+	var center := Vector2(0, -44) * size_k()
+	var pulse := 1.0 + 0.025 * sin(t * 9.0)
+	ci.draw_texture_rect(_shield_tex, Rect2(center - Vector2(r, r) * pulse, Vector2(r, r) * 2.0 * pulse), false,
+		Color(c.r, c.g, c.b, alpha))
+	ci.draw_arc(center, r * pulse, 0, TAU, 64, Color(c.r, c.g, c.b, 0.9 * alpha).lerp(Color.WHITE, 0.35), 2.5)
+	# brillo (reflejo arriba a la izquierda) y un destello que gira por el borde
+	ci.draw_arc(center, r * 0.78, -2.5, -1.6, 16, Color(1, 1, 1, 0.55 * alpha), 4.0)
+	ci.draw_circle(center + Vector2(-r * 0.42, -r * 0.46), r * 0.08, Color(1, 1, 1, 0.6 * alpha))
+	var sa := t * 2.4
+	ci.draw_arc(center, r * pulse - 1.0, sa, sa + 0.7, 12, Color(1, 1, 1, 0.8 * alpha), 3.0)
+	ci.draw_arc(center, r * pulse - 1.0, sa + PI, sa + PI + 0.4, 8, Color(1, 1, 1, 0.5 * alpha), 2.0)
+	var cracks := int((1.0 - k) * shield_cracks.size() * 1.1)
+	for i in mini(cracks, shield_cracks.size()):
+		var pts: PackedVector2Array = shield_cracks[i]
+		var scaled := PackedVector2Array()
+		for p in pts:
+			scaled.append(center + p * r)
+		ci.draw_polyline(scaled, Color(1, 1, 1, 0.95), 1.8)
 
 
 func _draw_held_item(ci: CanvasItem) -> void:

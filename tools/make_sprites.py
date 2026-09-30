@@ -833,7 +833,9 @@ def make_items():
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     only = os.environ.get("ONLY")
-    for cid, ch in CHARACTERS.items():
+    # Los luchadores de Boulevard Smash salen de tools/import_sheets.py (dibujos de referencia).
+    # Los 8 personajes antiguos de este archivo solo se generan si pides OLD_CHARS=1.
+    for cid, ch in (CHARACTERS.items() if os.environ.get("OLD_CHARS") else []):
         if only and cid != only:
             continue
         make_character(cid, ch)

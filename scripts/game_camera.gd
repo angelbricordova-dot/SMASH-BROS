@@ -7,6 +7,9 @@ extends Camera2D
 @export var smooth := 6.0
 
 var focus: Node2D = null   # si se asigna, la cámara se acerca a ese nodo (victoria)
+var focus_pos = null       # o a un punto fijo (Vector2) — lo usa el golpe final
+var focus_zoom := 1.7
+var focus_speed := 1.0
 var _shake := 0.0
 var _punch := 0.0
 var _base_zoom := Vector2.ONE
@@ -26,11 +29,16 @@ func punch(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
+	# la cámara usa el tiempo real (en cámara lenta sigue moviéndose con suavidad)
+	delta = delta / maxf(Engine.time_scale, 0.01)
 	var target := global_position
 	var z := _base_zoom.x
-	if focus and is_instance_valid(focus):
+	if focus_pos != null:
+		target = focus_pos
+		z = focus_zoom
+	elif focus and is_instance_valid(focus):
 		target = focus.global_position + Vector2(0, -60)
-		z = 1.7
+		z = focus_zoom
 	else:
 		var pts: Array[Vector2] = []
 		for f in get_tree().get_nodes_in_group("fighters"):
@@ -47,7 +55,7 @@ func _process(delta: float) -> void:
 			var view := get_viewport_rect().size
 			z = clampf(minf(view.x / (hi.x - lo.x), view.y / (hi.y - lo.y)), min_zoom, max_zoom)
 			target = (lo + hi) / 2.0 + Vector2(0, 30)
-	var k := 1.0 - exp(-smooth * delta)
+	var k := 1.0 - exp(-smooth * focus_speed * delta)
 	global_position = global_position.lerp(target, k)
 	_base_zoom = _base_zoom.lerp(Vector2(z, z), k)
 	zoom = _base_zoom * (1.0 + _punch * 0.3)

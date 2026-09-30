@@ -70,7 +70,9 @@ class HudCard extends Control:
 		draw_string_outline(font_t, Vector2(98, 72) + shake, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 10, Color(0, 0, 0, 0.9))
 		draw_string(font_t, Vector2(98, 72) + shake, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, pcol)
 		# vidas
-		for i in fighter.stocks:
+		if Game.mode == "training":
+			draw_string(font_t, Vector2(w - 44, 34), "∞", HORIZONTAL_ALIGNMENT_RIGHT, 30, 26, col)
+		for i in (0 if Game.mode == "training" else fighter.stocks):
 			var sp := Vector2(w - 22 - i * 20, 22)
 			draw_circle(sp, 7, Color(0, 0, 0, 0.5))
 			draw_circle(sp, 6, col)
