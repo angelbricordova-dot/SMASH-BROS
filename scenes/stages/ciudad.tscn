@@ -1,0 +1,85 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/stage.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/platform.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/game_camera.gd" id="3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bg_ciudad.png" id="4"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/moving_platform.gd" id="7"]
+
+[node name="Ciudad" type="Node2D"]
+script = ExtResource("1")
+blast_zone = Rect2(-1100, -900, 2200, 1800)
+
+[node name="Background" type="CanvasLayer" parent="."]
+layer = -10
+
+[node name="Sky" type="TextureRect" parent="Background"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="MainGround" type="StaticBody2D" parent="Platforms"]
+position = Vector2(-380, 200)
+script = ExtResource("2")
+size = Vector2(760, 160)
+one_way = false
+ground = true
+style = 2
+
+[node name="GirderLeft" type="StaticBody2D" parent="Platforms"]
+position = Vector2(-640, 290)
+script = ExtResource("2")
+size = Vector2(170, 20)
+one_way = true
+ground = false
+style = 2
+
+[node name="GirderRight" type="StaticBody2D" parent="Platforms"]
+position = Vector2(470, 290)
+script = ExtResource("2")
+size = Vector2(170, 20)
+one_way = true
+ground = false
+style = 2
+
+[node name="MovingGirder" type="AnimatableBody2D" parent="Platforms"]
+position = Vector2(-90, 40)
+script = ExtResource("7")
+size = Vector2(180, 20)
+travel = Vector2(240, 0)
+period = 7.0
+style = 2
+
+[node name="Spawn1" type="Marker2D" parent="."]
+position = Vector2(-180, 199)
+
+[node name="Spawn2" type="Marker2D" parent="."]
+position = Vector2(180, 199)
+
+[node name="Spawn3" type="Marker2D" parent="."]
+position = Vector2(-120, 199)
+
+[node name="Spawn4" type="Marker2D" parent="."]
+position = Vector2(120, 199)
+
+[node name="RespawnPoint" type="Marker2D" parent="."]
+position = Vector2(0, -230)
+
+[node name="GameCamera" type="Camera2D" parent="."]
+position = Vector2(0, 40)
+script = ExtResource("3")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("5")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("6")

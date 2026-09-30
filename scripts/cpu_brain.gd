@@ -1,13 +1,42 @@
 class_name CpuBrain
 extends RefCounted
-## Cerebro sencillo para jugadores controlados por la computadora.
+## Cerebro de los jugadores controlados por la computadora (CPU).
 ## Cada frame rellena las "entradas" del Fighter, como si fuera un control.
+## Dificultad: 0 = Fácil, 1 = Normal, 2 = Difícil (ver set_level).
 
-var _attack_cd := 0.5
+var level := 1
+var reaction := 0.25        # segundos extra entre ataques (más = más lento)
+var aggression := 0.65      # qué tanto ataca
+var shield_chance := 0.015  # probabilidad por frame de cubrirse si lo van a golpear
+var parry_chance := 0.12    # probabilidad de hacer parry a un ataque
+var recovery_skill := 0.85  # qué tan bien vuelve al escenario
+var item_interest := 0.5    # ganas de recoger objetos
+var di_skill := 0.4         # qué tan bien usa DI al salir volando
+
+var _attack_cd := 0.6
 var _jump_cd := 0.0
-var _special_cd := 2.0
+var _special_cd := 1.5
 var _shield_time := 0.0
-var reaction := 0.25  # más alto = más lento reaccionando
+var _hold_attack := 0.0
+var _ledge_wait := 0.4
+var _dash_cd := 0.0
+var _taunt_cd := 3.0
+var _last_seen_attack_t := 99.0
+var _parry_tried := false
+
+
+func set_level(l: int) -> void:
+	level = clampi(l, 0, 2)
+	match level:
+		0:
+			reaction = 0.65; aggression = 0.35; shield_chance = 0.004; parry_chance = 0.0
+			recovery_skill = 0.55; item_interest = 0.2; di_skill = 0.0
+		1:
+			reaction = 0.28; aggression = 0.65; shield_chance = 0.015; parry_chance = 0.12
+			recovery_skill = 0.85; item_interest = 0.5; di_skill = 0.4
+		2:
+			reaction = 0.06; aggression = 0.95; shield_chance = 0.03; parry_chance = 0.45
+			recovery_skill = 1.0; item_interest = 0.8; di_skill = 0.9
 
 
 func think(f: Fighter, delta: float) -> void:
@@ -16,24 +45,50 @@ func think(f: Fighter, delta: float) -> void:
 	f.in_down = false
 	f.in_jump_held = false
 	f.in_shield = false
+	f.in_attack_held = _hold_attack > 0.0
 	_attack_cd -= delta
 	_jump_cd -= delta
 	_special_cd -= delta
 	_shield_time -= delta
+	_dash_cd -= delta
+	_taunt_cd -= delta
 
 	var half_w: float = f.stage_info["half_width"]
 	var ground_y: float = f.stage_info["ground_y"]
 	var pos := f.global_position
 
-	# --- Recuperación: si está fuera del escenario, volver al centro ---
-	var off_x := absf(pos.x) > half_w - 10.0
-	var below := pos.y > ground_y + 10.0
-	if off_x or below:
+	# --- Colgado del borde: esperar un poco y subir o saltar ---
+	if f.state == Fighter.State.LEDGE:
+		_ledge_wait -= delta
+		if _ledge_wait <= 0.0:
+			_ledge_wait = randf_range(0.2, 0.7) + reaction
+			if randf() < 0.6:
+				f.in_move = f.facing
+			else:
+				f.in_jump_pressed = true
+		return
+
+	# --- Saliendo volando: DI hacia el centro ---
+	if f.state == Fighter.State.HITSTUN:
+		if randf() < di_skill:
+			f.in_move = -signf(pos.x)
+			f.in_up = true
+		return
+
+	# --- Recuperación: si está fuera del escenario, volver ---
+	var offstage := (absf(pos.x) > half_w - 5.0 or pos.y > ground_y + 10.0) and not f.is_on_floor()
+	if offstage:
 		f.in_move = -signf(pos.x)
-		if pos.y > ground_y - 60.0 and f.velocity.y > -80.0 and _jump_cd <= 0.0 and f.air_jumps_left > 0:
+		if f.helpless or f.state != Fighter.State.NORMAL:
+			return
+		var low := pos.y > ground_y - 40.0
+		if f.air_jumps_left > 0 and f.velocity.y > -50.0 and low and _jump_cd <= 0.0:
 			f.in_jump_pressed = true
-			f.in_jump_held = true
-			_jump_cd = 0.5
+			_jump_cd = 0.35
+		elif f.air_jumps_left == 0 and not f.up_special_used and f.velocity.y > 0.0 \
+				and (pos.y > ground_y - 10.0 or absf(pos.x) > half_w + 160.0) and randf() < recovery_skill:
+			f.in_up = true
+			f.in_special_pressed = true
 		f.in_jump_held = f.velocity.y < 0.0
 		return
 
@@ -42,6 +97,76 @@ func think(f: Fighter, delta: float) -> void:
 		return
 	var d := t.global_position - pos
 	var dist := absf(d.x)
+	var face_target := func() -> void:
+		f.facing = 1 if d.x > 0.0 else -1
+
+	# --- Provocar si el rival acaba de perder una vida ---
+	if not t.is_alive() or t.hover_time > 0.0:
+		if _taunt_cd <= 0.0 and f.is_on_floor() and randf() < 0.5:
+			f.in_taunt_pressed = true
+			_taunt_cd = 6.0
+		return
+
+	# --- Arco: tensar y soltar ---
+	if f.held_item == "bow":
+		if _hold_attack > 0.0:
+			_hold_attack -= delta
+			f.in_attack_held = _hold_attack > 0.0
+			return
+		if _attack_cd <= 0.0 and dist > 140.0 and absf(d.y) < 60.0:
+			face_target.call()
+			f.in_attack_pressed = true
+			f.in_attack_held = true
+			_hold_attack = randf_range(0.3, 0.95)
+			_attack_cd = 0.6 + reaction
+			return
+
+	# --- Ulti ---
+	if f.ult_meter >= Fighter.ULT_MAX and randf() < 0.04 + level * 0.05:
+		var ok := true
+		match f.char_id:
+			"rojo": ok = absf(d.y) < 70.0
+			"verde": ok = t.is_on_floor() and f.is_on_floor()
+			_: ok = true
+		if ok:
+			face_target.call()
+			f.in_ult_pressed = true
+			return
+
+	# --- Recoger objetos ---
+	if f.held_item == "" and item_interest > 0.0 and f.is_on_floor():
+		var best: Node2D = null
+		var best_d := 360.0 * item_interest
+		for it in f.get_tree().get_nodes_in_group("items"):
+			var dd: float = it.global_position.distance_to(pos)
+			if dd < best_d and absf(it.global_position.y - pos.y) < 40.0:
+				best_d = dd
+				best = it
+		if best:
+			var dx := best.global_position.x - pos.x
+			if absf(dx) < 40.0:
+				f.in_attack_pressed = true
+			else:
+				f.in_move = signf(dx)
+			return
+
+	# --- Parry: presionar hacia el rival justo antes de que su golpe salga ---
+	if t.state == Fighter.State.ATTACK:
+		if t.attack_time < _last_seen_attack_t:
+			_parry_tried = false
+		_last_seen_attack_t = t.attack_time
+		var until_active: float = t.current_move["startup"] - t.attack_time
+		if not _parry_tried and parry_chance > 0.0 and dist < 140.0 and absf(d.y) < 90.0 \
+				and until_active > 0.0 and until_active < 0.08:
+			_parry_tried = true
+			if randf() < parry_chance:
+				if d.x > 0.0:
+					f.in_right_pressed = true
+				else:
+					f.in_left_pressed = true
+				return
+	else:
+		_last_seen_attack_t = 99.0
 
 	# no caminar fuera del borde
 	var edge_guard := func(dirx: float) -> float:
@@ -49,31 +174,34 @@ func think(f: Fighter, delta: float) -> void:
 			return 0.0
 		return dirx
 
-	# --- Defensa ---
+	# --- Escudo ---
 	if t.state == Fighter.State.ATTACK and dist < 110.0 and absf(d.y) < 70.0 and _shield_time <= 0.0 \
-			and randf() < 0.02 and f.is_on_floor():
-		_shield_time = randf_range(0.3, 0.7)
+			and randf() < shield_chance * 3.0 and f.is_on_floor():
+		_shield_time = randf_range(0.25, 0.6)
 	if _shield_time > 0.0:
 		f.in_shield = true
 		return
 
-	# --- Acercarse ---
+	# --- Acercarse (y correr si está lejos) ---
 	if dist > 60.0:
 		f.in_move = edge_guard.call(signf(d.x))
+		if dist > 230.0 and f.is_on_floor() and not f.running and _dash_cd <= 0.0 and f.in_move != 0.0:
+			f.dash_request = 0.1
+			f.dash_dir = int(signf(d.x))
+			_dash_cd = 1.0
 	else:
-		f.facing = 1 if d.x > 0.0 else -1
+		face_target.call()
 
-	# --- Saltar hacia plataformas / oponente alto ---
+	# --- Saltar hacia plataformas / rival alto ---
 	if d.y < -90.0 and dist < 260.0 and _jump_cd <= 0.0 and f._can_jump():
 		f.in_jump_pressed = true
 		f.in_jump_held = true
-		_jump_cd = randf_range(0.5, 1.0)
+		_jump_cd = randf_range(0.5, 1.0) + reaction
 	if f.velocity.y < 0.0 and d.y < -40.0:
 		f.in_jump_held = true
 
 	# --- Bajar de la plataforma si el rival está más abajo ---
-	if d.y > 90.0 and dist < 140.0 and f.is_on_floor() and f.floor_collider \
-			and f.floor_collider.is_in_group("oneway"):
+	if d.y > 90.0 and dist < 140.0 and f.is_on_floor() and f._on_oneway():
 		f.in_down = true
 		f.in_down_pressed = true
 
@@ -81,10 +209,12 @@ func think(f: Fighter, delta: float) -> void:
 	if _attack_cd <= 0.0 and dist < 85.0 and absf(d.y) < 90.0:
 		if d.y < -70.0:
 			f.in_up = true
-		f.facing = 1 if d.x > 0.0 else -1
+		elif d.y > 40.0 and not f.is_on_floor():
+			f.in_down = true
+		face_target.call()
 		f.in_attack_pressed = true
-		_attack_cd = randf_range(0.35, 0.9) + reaction
-	elif _special_cd <= 0.0 and dist > 220.0 and absf(d.y) < 70.0:
-		f.facing = 1 if d.x > 0.0 else -1
+		_attack_cd = randf_range(0.25, 0.7) / aggression + reaction
+	elif _special_cd <= 0.0 and dist > 200.0 and absf(d.y) < 70.0:
+		face_target.call()
 		f.in_special_pressed = true
-		_special_cd = randf_range(1.5, 3.0)
+		_special_cd = randf_range(1.5, 3.0) + reaction * 2.0

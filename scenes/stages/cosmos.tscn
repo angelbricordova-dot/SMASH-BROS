@@ -1,14 +1,16 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/stage.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/platform.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/game_camera.gd" id="3"]
-[ext_resource type="Texture2D" path="res://assets/sprites/background.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bg_cosmos.png" id="4"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="5"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/moving_platform.gd" id="7"]
 
-[node name="Stage" type="Node2D"]
+[node name="Cosmos" type="Node2D"]
 script = ExtResource("1")
+blast_zone = Rect2(-1100, -900, 2200, 1800)
 
 [node name="Background" type="CanvasLayer" parent="."]
 layer = -10
@@ -26,38 +28,24 @@ stretch_mode = 6
 [node name="Platforms" type="Node2D" parent="."]
 
 [node name="MainGround" type="StaticBody2D" parent="Platforms"]
-position = Vector2(-450, 200)
+position = Vector2(-500, 200)
 script = ExtResource("2")
-size = Vector2(900, 120)
+size = Vector2(1000, 150)
 one_way = false
-grass = true
-
-[node name="PlatformLeft" type="StaticBody2D" parent="Platforms"]
-position = Vector2(-330, 68)
-script = ExtResource("2")
-size = Vector2(200, 20)
-
-[node name="PlatformRight" type="StaticBody2D" parent="Platforms"]
-position = Vector2(130, 68)
-script = ExtResource("2")
-size = Vector2(200, 20)
-
-[node name="PlatformTop" type="StaticBody2D" parent="Platforms"]
-position = Vector2(-100, -60)
-script = ExtResource("2")
-size = Vector2(200, 20)
+ground = true
+style = 1
 
 [node name="Spawn1" type="Marker2D" parent="."]
-position = Vector2(-200, 199)
+position = Vector2(-250, 199)
 
 [node name="Spawn2" type="Marker2D" parent="."]
-position = Vector2(200, 199)
+position = Vector2(250, 199)
 
 [node name="Spawn3" type="Marker2D" parent="."]
-position = Vector2(-320, 67)
+position = Vector2(-120, 199)
 
 [node name="Spawn4" type="Marker2D" parent="."]
-position = Vector2(320, 67)
+position = Vector2(120, 199)
 
 [node name="RespawnPoint" type="Marker2D" parent="."]
 position = Vector2(0, -230)

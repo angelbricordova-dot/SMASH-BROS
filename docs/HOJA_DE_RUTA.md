@@ -3,29 +3,45 @@
 Esto es lo que **ya funciona** y lo que podemos agregar después. Dime qué te interesa primero y lo hacemos.
 
 ## ✅ Ya incluido
-- Peleas de 2 jugadores (teclado o gamepad) y **CPU** como rival.
-- **Daño en % y empuje estilo Smash** (más daño = sales volando más lejos), KO por los bordes, vidas, reaparición con plataforma.
-- 3 personajes con estadísticas distintas (equilibrado, rápido y ligero, lento y pesado).
-- Ataque normal, hacia arriba, hacia abajo (en el aire: *spike*), ataque especial con proyectil.
-- Escudo que se desgasta y se rompe, doble salto, caída rápida, atravesar plataformas.
-- Cámara con zoom dinámico, sacudida de pantalla y cámara lenta al hacer KO.
-- Menú con selección de personaje, pausa, pantalla de ganador y revancha.
-- Sprites (pixel art) y efectos de sonido generados, listos para reemplazar por los tuyos.
 
-## 🔜 Siguientes pasos sugeridos (de más fácil a más difícil)
-1. **Tus propios sprites**: reemplazar los personajes por tus dibujos (mira la guía, sección 5).
-2. **Ajustar el "feeling"**: velocidad, gravedad, fuerza de golpes (todo en `character_data.gd`).
-3. **Música de fondo** (menú y pelea).
-4. **Más escenarios** y menú para elegirlos.
-5. **Más personajes** (con su propio especial: dash, bumerán, contraataque…).
-6. **Más ataques**: ataques fuertes cargados (smash), ataques aéreos en cada dirección, agarres y lanzamientos.
-7. **Esquivas**: rodar y esquivar en el aire.
-8. **Objetos** que caen del cielo (espada, bomba, curación).
-9. **Bola final / súper ataque**.
-10. **Modo historia o torneo**, estadísticas, más jugadores (hasta 4).
-11. **Online** (la parte más difícil; se deja para el final).
+**Jugabilidad**
+- Daño en % y empuje estilo Smash, KO por los bordes, vidas, reaparición con plataforma.
+- Caminar y **correr con doble toque**, ataque corriendo, salto corto, **doble salto** con voltereta, caída rápida.
+- **Recuperación con arriba + especial** (distinta para cada personaje) y caída indefensa después.
+- **Colgarse de los bordes** del escenario.
+- **Agacharse** (cuerpo más pequeño y sales volando menos).
+- **Parry** estilo Street Fighter III (tocar hacia el atacante justo a tiempo) que llena la **barra de ulti**.
+- **Ulti** única para cada personaje.
+- Buffer de teclas, DI (influir tu salida) y recuperar el doble salto al ser golpeado: movimiento más fluido.
+- **Escudo que se agrieta** y se rompe.
+- **Provocar** (emote) y **celebración de victoria** con pantalla de resultados.
+- **Objetos**: bate (home run) y arco estilo Minecraft con 3 flechas; se pueden lanzar.
+
+**Contenido**
+- 4 personajes con habilidades diferentes: RYU-KO, KORI, GRUNK y UMBRA (el que se teletransporta como Omen).
+- 3 mapas: Pradera, Destino Cósmico y Azotea (con plataforma móvil).
+- CPU con 3 dificultades (Fácil, Normal, Difícil). En Difícil hace parries y usa DI.
+- Personaje y mapa **aleatorios**.
+- 41 efectos de sonido.
+
+**Interfaz**
+- Menú nuevo: título, selección de luchador con tarjetas y habilidades, selección de mapa con miniaturas.
+- HUD con retrato, % que rebota al recibir daño, vidas y barra de ulti.
+- Pausa con opciones y pantalla de resultados con estadísticas (KOs, caídas, daño, parries).
+
+## 🔜 Siguientes pasos sugeridos
+1. **Parte visual** (lo que dijiste que haríamos después): sprites más detallados o hechos por ti, animaciones
+   propias para cada especial, fondos con movimiento (parallax).
+2. **Música** de fondo para el menú y cada mapa.
+3. **Más ataques**: ataques fuertes cargados (smash), aéreos distintos en cada dirección, agarres y lanzamientos.
+4. **Esquivas**: rodar en el suelo y esquivar en el aire.
+5. **Más objetos**: bomba, espada, curación, "Smash Ball" que da la ulti.
+6. **Hasta 4 jugadores** y modo por equipos.
+7. **Modo arcade / historia**, entrenamiento, estadísticas guardadas.
+8. **Configurar controles desde el menú**.
+9. **Online** (lo más difícil; se deja para el final).
 
 ## Cómo trabajar conmigo
-- Dime una cosa a la vez: *"quiero que Kori tenga un ataque que lance hielo hacia arriba"*.
-- Si algo se siente raro (muy lento, muy fácil…), dime cómo lo sientes y ajusto los números.
-- Si quieres personajes nuevos, cuéntame cómo son (apariencia, personalidad, tipo de ataques) y te genero los sprites.
+- Dime una cosa a la vez: *"quiero que KORI tenga un ataque que lance hielo hacia arriba"*.
+- Si algo se siente raro (muy lento, muy fácil, la ventana del parry muy corta…), dime cómo lo sientes y ajusto los números.
+- Si quieres personajes nuevos, cuéntame cómo son (apariencia, personalidad, tipo de ataques).
