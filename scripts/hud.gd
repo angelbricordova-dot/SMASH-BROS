@@ -2,6 +2,7 @@ extends CanvasLayer
 ## HUD de la pelea: una tarjeta por luchador con retrato, % de daño, vidas y barra de ulti.
 
 const ULT_KEYS := {1: "E", 2: "L"}
+const CARD_H := 22
 var _cards := []
 
 
@@ -11,7 +12,7 @@ func setup(fighters: Array) -> void:
 		var card := HudCard.new()
 		card.fighter = fighters[i]
 		card.ult_key = "" if fighters[i].is_cpu else ULT_KEYS.get(fighters[i].player_id, "")
-		card.position = Vector2(1280.0 * (i + 1) / (n + 1) - 150.0, 604)
+		card.position = Vector2(1280.0 * (i + 1) / (n + 1) - 150.0, 596)
 		card.size = Vector2(300, 104)
 		add_child(card)
 		_cards.append(card)
@@ -22,7 +23,7 @@ class HudCard extends Control:
 	var ult_key := ""
 	var _last_pct := 0.0
 	var _pop := 0.0
-	var _head: AtlasTexture
+	var _head: Texture2D
 	var _t := 0.0
 
 	func _ready() -> void:
@@ -51,7 +52,7 @@ class HudCard extends Control:
 		draw_circle(pc, 38, Color(col.r, col.g, col.b, 0.35))
 		draw_circle(pc, 34, Color(0.08, 0.09, 0.18))
 		draw_arc(pc, 36, 0, TAU, 40, col, 3.0)
-		draw_texture_rect(_head, Rect2(pc - Vector2(30, 30), Vector2(60, 60)), false,
+		draw_texture_rect(_head, Rect2(pc - Vector2(32, 34), Vector2(64, 64)), false,
 			Color.WHITE if alive else Color(0.4, 0.4, 0.4))
 		var font_t: Font = Game.font_title
 		var font_b: Font = Game.font_body
@@ -90,7 +91,12 @@ class HudCard extends Control:
 				var tag := "¡ULTI!  [%s]" % ult_key if ult_key != "" else "¡ULTI!"
 				draw_string_outline(font_t, Vector2(bar.position.x + bar.size.x - 96, 80), tag, HORIZONTAL_ALIGNMENT_RIGHT, 96, 16, 6, Color.BLACK)
 				draw_string(font_t, Vector2(bar.position.x + bar.size.x - 96, 80), tag, HORIZONTAL_ALIGNMENT_RIGHT, 96, 16, UI.ACCENT)
-		# marcas de parry (cada parry = 1/3 de barra)
-		for i in [1, 2]:
-			var x: float = bar.position.x + bar.size.x * i * Fighter.PARRY_METER / Fighter.ULT_MAX
-			draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(0, 0, 0, 0.5), 1.0)
+		# cartas del modo Caos (encima de la tarjeta)
+		var cx := 6.0
+		for id in fighter.cards:
+			var c := Cards.get_card(id)
+			var cc: Color = Cards.RARITY_COLORS[c["rarity"]]
+			var r := Rect2(cx, -28, 40, 24)
+			draw_style_box(UI.style(Color(0.06, 0.07, 0.15, 0.9), 6, cc, 2, false), r)
+			draw_string(font_t, Vector2(r.position.x, r.position.y + 18), c["icon"], HORIZONTAL_ALIGNMENT_CENTER, 40, 14, Color.WHITE)
+			cx += 44.0

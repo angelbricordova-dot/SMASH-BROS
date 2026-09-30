@@ -1,73 +1,70 @@
 """
-Generador de sprites (pixel art) para el juego.
+Generador de sprites (pixel art HD) para el juego.
 
 Uso (solo si quieres regenerar/modificar los dibujos):
-    pip install pillow
+    pip install pillow numpy
     python3 tools/make_sprites.py
 
 Crea en assets/sprites/:
-  - char_<id>.png   hoja de sprites de cada personaje (6 columnas x 13 filas de 64x64)
-  - proj_<id>.png   proyectil animado (4 frames de 16x16)
-  - item_*.png      objetos (bate, arco, flecha)
-  - tile_*.png      texturas de los escenarios
-  - bg_*.png        fondos de los escenarios
+  - char_<id>.png      hoja de sprites (8 columnas x 31 filas de cuadros de 160x144)
+  - idle_<id>.png      solo la animación "idle" (para los menús)
+  - portrait_<id>.png  retrato (cabeza) 60x60
+  - proj_<id>.png      proyectil animado (4 cuadros de 32x32)
+  - item_*.png         objetos
 Puedes reemplazar cualquiera de estos PNG por tus propios dibujos MIENTRAS respetes
 el tamaño y el orden de los cuadros (mira docs/GUIA_PASO_A_PASO.md).
 """
 import math
 import os
-import random
 
+import numpy as np
 from PIL import Image, ImageDraw
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "sprites")
-FRAME = 64
-OX, OY = 12, 16  # desplazamiento del personaje dentro del cuadro (deja margen para efectos)
-COLS = 6
+FW, FH = 160, 144            # tamaño de cada cuadro
+HIP = (70, 114)              # cadera dentro del cuadro (los pies quedan en y=138)
+K = 2                        # píxeles por unidad de pose
+COLS = 8
 WHITE = (255, 255, 255, 255)
 
-# Filas de la hoja (nombre, cantidad de cuadros). El orden DEBE coincidir con fighter.gd.
+# Filas de la hoja (nombre, cuadros). El orden DEBE coincidir con scripts/fighter.gd (ANIMS).
 ANIMS = [
-    ("idle", 4),
-    ("run", 6),
-    ("jump", 1),
-    ("fall", 1),
-    ("attack", 5),
-    ("special", 4),
-    ("hurt", 1),
-    ("shield", 1),
-    ("crouch", 2),
-    ("taunt", 4),
-    ("win", 6),
-    ("ledge", 1),
-    ("upspecial", 2),
+    ("idle", 6), ("walk", 8), ("run", 8), ("jump", 2), ("fall", 2), ("crouch", 2), ("shield", 1),
+    ("dodge", 3), ("hurt", 2), ("ledge", 2), ("taunt", 6), ("win", 8),
+    ("jab1", 3), ("jab2", 3), ("jab3", 4), ("ftilt", 4), ("utilt", 4), ("dtilt", 4), ("dash", 4),
+    ("smash", 5), ("nair", 4), ("fair", 4), ("bair", 4), ("uair", 4), ("dair", 4),
+    ("special", 4), ("upspecial", 3), ("downspecial", 4), ("charge", 4), ("throw", 3), ("ult", 4),
 ]
 
 CHARACTERS = {
-    "rojo": dict(
-        skin=(246, 200, 160), hair=(222, 70, 44), hair_style="spiky",
-        top=(244, 244, 240), pants=(58, 72, 150), shoes=(160, 76, 44),
-        accent=(226, 44, 56), glow=(255, 150, 40),
-        torso_w=12, head_r=9, eye=(30, 30, 40), taunt="flex",
-    ),
-    "azul": dict(
-        skin=(240, 196, 168), hair=(76, 156, 246), hair_style="ponytail",
-        top=(44, 58, 108), pants=(34, 40, 76), shoes=(226, 226, 244),
-        accent=(92, 224, 244), glow=(130, 236, 255),
-        torso_w=10, head_r=9, eye=(20, 30, 60), taunt="sign",
-    ),
-    "verde": dict(
-        skin=(126, 196, 94), hair=(64, 42, 30), hair_style="horns",
-        top=(138, 94, 54), pants=(92, 62, 40), shoes=(62, 42, 30),
-        accent=(244, 214, 84), glow=(170, 255, 90),
-        torso_w=16, head_r=10, eye=(40, 20, 10), taunt="pound",
-    ),
-    "morado": dict(
-        skin=(40, 30, 60), hair=(96, 56, 150), hair_style="hood",
-        top=(74, 44, 118), pants=(44, 30, 70), shoes=(30, 22, 44),
-        accent=(190, 120, 255), glow=(200, 130, 255),
-        torso_w=12, head_r=9, eye=(235, 200, 255), taunt="float", cloak=True,
-    ),
+    "rojo": dict(skin=(246, 200, 160), hair=(226, 72, 46), hair_style="spiky", top=(246, 246, 242),
+                 pants=(58, 74, 156), shoes=(166, 78, 46), accent=(226, 44, 56), glow=(255, 150, 40),
+                 gloves=(210, 40, 50), torso_w=12, head_r=9, eye=(60, 40, 30), weapon=None, taunt="flex"),
+    "azul": dict(skin=(242, 198, 170), hair=(78, 160, 248), hair_style="ponytail", top=(44, 60, 112),
+                 pants=(34, 42, 80), shoes=(228, 228, 246), accent=(92, 226, 246), glow=(130, 236, 255),
+                 gloves=None, torso_w=10, head_r=9, eye=(30, 70, 150), weapon=None, taunt="sign", scarf=True),
+    "verde": dict(skin=(126, 198, 94), hair=(66, 44, 30), hair_style="horns", top=(140, 96, 56),
+                  pants=(94, 64, 42), shoes=(64, 44, 30), accent=(246, 214, 84), glow=(170, 255, 90),
+                  gloves=None, torso_w=16, head_r=10, eye=(200, 40, 20), weapon="club", taunt="pound"),
+    "morado": dict(skin=(40, 30, 62), hair=(98, 58, 152), hair_style="hood", top=(76, 46, 120),
+                   pants=(46, 32, 72), shoes=(32, 24, 46), accent=(192, 122, 255), glow=(206, 136, 255),
+                   gloves=None, torso_w=12, head_r=9, eye=(240, 205, 255), weapon="claws", taunt="float",
+                   cloak=True),
+    "kaede": dict(skin=(248, 214, 186), hair=(40, 30, 44), hair_style="topknot", top=(236, 120, 160),
+                  pants=(52, 44, 70), shoes=(70, 50, 40), accent=(250, 240, 245), glow=(255, 170, 210),
+                  gloves=None, torso_w=12, head_r=9, eye=(60, 30, 50), weapon="katana", taunt="bow", hakama=True),
+    "volta": dict(skin=(236, 190, 150), hair=(255, 222, 60), hair_style="bolt", top=(40, 40, 50),
+                  pants=(36, 36, 46), shoes=(255, 210, 40), accent=(255, 214, 40), glow=(255, 240, 120),
+                  gloves=(255, 214, 40), torso_w=11, head_r=9, eye=(40, 90, 200), weapon=None, taunt="flex",
+                  goggles=True),
+    "nova": dict(skin=(170, 180, 196), hair=(230, 120, 40), hair_style="helmet", top=(236, 128, 44),
+                 pants=(84, 92, 110), shoes=(60, 66, 80), accent=(80, 230, 255), glow=(90, 240, 255),
+                 gloves=(120, 130, 150), torso_w=13, head_r=9, eye=(90, 240, 255), weapon="cannon",
+                 taunt="salute", jetpack=True),
+    "bruma": dict(skin=(238, 206, 190), hair=(96, 40, 110), hair_style="witch", top=(30, 150, 150),
+                  pants=(26, 90, 96), shoes=(50, 30, 60), accent=(250, 200, 70), glow=(120, 255, 220),
+                  gloves=None, torso_w=11, head_r=9, eye=(120, 30, 140), weapon="staff", taunt="float",
+                  cloak=True),
 }
 
 
@@ -79,599 +76,770 @@ def shade(col, f):
     return tuple(max(0, min(255, int(c * f))) for c in col[:3]) + (255,)
 
 
-# ---------------------------------------------------------------- utilidades de dibujo
-def circle(d, c, r, col):
-    d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=col)
+# ---------------------------------------------------------------- lienzo en "unidades"
+class Canvas:
+    """Dibuja en unidades de pose (1 unidad = K píxeles) respecto a la cadera."""
+
+    def __init__(self, bob):
+        self.img = Image.new("RGBA", (FW, FH), (0, 0, 0, 0))
+        self.d = ImageDraw.Draw(self.img)
+        self.oy = bob
+
+    def P(self, p):
+        return (HIP[0] + p[0] * K, HIP[1] + (p[1] + self.oy) * K)
+
+    def circle(self, c, r, col):
+        x, y = self.P(c)
+        r *= K
+        self.d.ellipse([x - r, y - r, x + r, y + r], fill=col)
+
+    def ellipse(self, box, col):
+        a, b = self.P(box[:2]), self.P(box[2:])
+        self.d.ellipse([min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])], fill=col)
+
+    def poly(self, pts, col):
+        self.d.polygon([self.P(p) for p in pts], fill=col)
+
+    def line(self, pts, col, w):
+        self.d.line([self.P(p) for p in pts], fill=col, width=max(1, int(round(w * K))))
+
+    def rect(self, a, b, col):
+        pa, pb = self.P(a), self.P(b)
+        self.d.rectangle([min(pa[0], pb[0]), min(pa[1], pb[1]), max(pa[0], pb[0]), max(pa[1], pb[1])], fill=col)
 
 
-def limb(d, a, b, bend, w, col, end_col=None, end_r=None):
-    """Dibuja una extremidad de 2 segmentos (a -> rodilla/codo -> b)."""
+def limb(c, a, b, bend, w, col, end_col=None, end_r=None, mid_col=None):
     mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
     dx, dy = b[0] - a[0], b[1] - a[1]
     n = math.hypot(dx, dy) or 1
     px, py = -dy / n, dx / n
     k = (mx + px * bend, my + py * bend)
-    d.line([a, k], fill=col, width=w)
-    d.line([k, b], fill=col, width=w)
-    circle(d, k, w / 2 - 0.2, col)
-    circle(d, a, w / 2 - 0.2, col)
-    circle(d, b, (end_r if end_r else w / 2), end_col or col)
+    c.line([a, k], col, w)
+    c.line([k, b], mid_col or col, w)
+    c.circle(k, w / 2 - 0.1, col)
+    c.circle(a, w / 2 - 0.1, col)
+    c.circle(b, end_r if end_r else w / 2, end_col or col)
+    return k
 
 
-def light_pass(img):
-    """Sombreado moderno: luz arriba-derecha, sombra abajo-izquierda."""
-    px = img.load()
-    w, h = img.size
-    src = img.copy().load()
-    for y in range(h):
-        for x in range(w):
-            p = src[x, y]
-            if p[3] == 0:
-                continue
-            up = src[x, y - 1][3] if y > 0 else 0
-            right = src[x + 1, y][3] if x < w - 1 else 0
-            down = src[x, y + 1][3] if y < h - 1 else 0
-            left = src[x - 1, y][3] if x > 0 else 0
-            f = 1.0
-            if up == 0 or right == 0:
-                f = 1.22
-            elif down == 0 or left == 0:
-                f = 0.78
-            if f != 1.0:
-                px[x, y] = tuple(max(0, min(255, int(c * f + (12 if f > 1 else 0)))) for c in p[:3]) + (p[3],)
-    return img
+def rotate_vec(v, deg):
+    r = math.radians(deg)
+    return (v[0] * math.cos(r) - v[1] * math.sin(r), v[0] * math.sin(r) + v[1] * math.cos(r))
 
 
-def outline(img):
-    """Contorno de color (más oscuro que el pixel vecino), estilo pixel art moderno."""
-    px = img.load()
-    w, h = img.size
-    out = img.copy()
-    opx = out.load()
-    for y in range(h):
-        for x in range(w):
-            if px[x, y][3] == 0:
-                for dx, dy in ((0, 1), (1, 0), (-1, 0), (0, -1)):
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < w and 0 <= ny < h and px[nx, ny][3] > 0:
-                        n = px[nx, ny]
-                        opx[x, y] = (int(n[0] * 0.25) + 10, int(n[1] * 0.22) + 8, int(n[2] * 0.3) + 18, 255)
-                        break
+def along(p, deg, dist):
+    r = math.radians(deg)
+    return (p[0] + math.cos(r) * dist, p[1] + math.sin(r) * dist)
+
+
+# ---------------------------------------------------------------- post-proceso (numpy)
+def _shift(a, dx, dy):
+    out = np.zeros_like(a)
+    h, w = a.shape[:2]
+    ys, yd = (slice(0, h - dy), slice(dy, h)) if dy >= 0 else (slice(-dy, h), slice(0, h + dy))
+    xs, xd = (slice(0, w - dx), slice(dx, w)) if dx >= 0 else (slice(-dx, w), slice(0, w + dx))
+    out[yd, xd] = a[ys, xs]
     return out
 
 
 def finish(img):
-    return outline(light_pass(img))
+    a = np.array(img).astype(np.float32)
+    alpha = a[..., 3] > 0
+    rgb = a[..., :3]
+    # luz arriba-derecha (banda de 2 px) y sombra abajo-izquierda (banda de 3 px)
+    edge_light = np.zeros_like(alpha)
+    for d in (1, 2):
+        edge_light |= ~_shift(alpha, 0, d) | ~_shift(alpha, -d, 0)
+    edge_light &= alpha
+    edge_dark = np.zeros_like(alpha)
+    for d in (1, 2, 3):
+        edge_dark |= ~_shift(alpha, 0, -d) | ~_shift(alpha, d, 0)
+    edge_dark &= alpha & ~edge_light
+    rgb[edge_light] = np.minimum(255, rgb[edge_light] * 1.18 + 14)
+    rgb[edge_dark] = rgb[edge_dark] * 0.8
+    a[..., :3] = rgb
+    # contorno de color (1 px)
+    out = a.copy()
+    todo = ~alpha
+    for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+        n_alpha = _shift(alpha, dx, dy)
+        n_rgb = _shift(a[..., :3], dx, dy)
+        m = todo & n_alpha
+        out[m, 0] = n_rgb[m, 0] * 0.25 + 10
+        out[m, 1] = n_rgb[m, 1] * 0.22 + 8
+        out[m, 2] = n_rgb[m, 2] * 0.3 + 18
+        out[m, 3] = 255
+        todo &= ~m
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
+
+
+# ---------------------------------------------------------------- armas
+def draw_weapon(c, kind, hand, ang, ch, big=False):
+    glow = rgba(ch["glow"])
+    if kind == "katana":
+        tip = along(hand, ang, 27)
+        base = along(hand, ang, 3.5)
+        grip = along(hand, ang + 180, 4.5)
+        c.line([grip, base], (40, 30, 40, 255), 2.6)
+        for i in range(3):
+            q = along(grip, ang, 1.5 + i * 2.2)
+            c.circle(q, 0.7, (200, 60, 90, 255))
+        perp = ang + 90
+        c.poly([along(base, perp, 2.4), along(base, perp + 180, 2.4), along(along(base, ang, 0.8), perp + 180, 2.4),
+                along(along(base, ang, 0.8), perp, 2.4)], (230, 190, 80, 255))
+        mid = along(along(base, ang, 13), perp, -0.8)
+        c.poly([along(base, perp, 1.2), along(mid, perp, 1.3), tip, along(mid, perp, -0.9),
+                along(base, perp, -1.0)], (214, 222, 236, 255))
+        c.line([along(base, perp, 0.9), along(mid, perp, 0.9), tip], (255, 255, 255, 255), 0.5)
+    elif kind == "club":
+        end = along(hand, ang, 19)
+        grip = along(hand, ang + 180, 3)
+        perp = ang + 90
+        c.poly([along(grip, perp, 1.5), along(end, perp, 3.8), along(along(end, ang, 2), perp, 2.5),
+                along(along(end, ang, 2), perp, -2.5), along(end, perp, -3.8), along(grip, perp, -1.5)],
+               (150, 104, 62, 255))
+        for k in (7, 12, 16):
+            c.circle(along(along(hand, ang, k), perp, 1.5 if k % 2 else -1.8), 0.9, (104, 70, 40, 255))
+        c.line([along(grip, perp, 0), along(hand, ang, 3)], (90, 60, 36, 255), 2.6)
+    elif kind == "staff":
+        top = along(hand, ang, 18)
+        bot = along(hand, ang + 180, 12)
+        c.line([bot, top], (120, 80, 50, 255), 1.8)
+        c.line([bot, top], (160, 112, 70, 255), 0.7)
+        c.circle(top, 3.2 if big else 2.6, shade(glow, 0.8))
+        c.circle(top, 2.0 if big else 1.6, glow)
+        c.circle(along(top, -135, 0.8), 0.7, WHITE)
+        for s in (-1, 1):
+            c.line([along(top, ang + 180, 2), along(along(top, ang + 180, 4), ang + 90 * s, 2.5)],
+                   (230, 190, 80, 255), 0.8)
+    elif kind == "claws":
+        for i, off in enumerate((-1.6, 0, 1.6)):
+            s = along(hand, ang + 90, off)
+            c.line([s, along(along(s, ang, 7 + (1 if i == 1 else 0)), ang + 90, off * 0.4)], glow, 0.9)
+    elif kind == "cannon":
+        back = along(hand, ang + 180, 6)
+        front = along(hand, ang, 4)
+        c.line([back, front], (110, 120, 140, 255), 4.6)
+        c.line([back, front], (236, 128, 44, 255), 3.0)
+        c.circle(front, 2.2, (60, 66, 80, 255))
+        c.circle(front, 1.3, glow)
 
 
 # ---------------------------------------------------------------- dibujo del personaje
 def draw_character(ch, pose):
-    img = Image.new("RGBA", (FRAME, FRAME), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+    c = Canvas(pose.get("bob", 0))
     skin, hair, top, pants, shoes = (rgba(ch[k]) for k in ("skin", "hair", "top", "pants", "shoes"))
     accent, glow, eye = rgba(ch["accent"]), rgba(ch["glow"]), rgba(ch["eye"])
-
-    bob = pose.get("bob", 0)
+    gloves = rgba(ch["gloves"]) if ch.get("gloves") else None
     lean = pose.get("lean", 0)
     tw = ch["torso_w"]
     hr = ch["head_r"]
-    hip = (24 + OX, 33 + bob + OY)
-    neck = (24 + lean + OX, 22 + bob + OY)
-    shoulder = (24 + lean + OX, 24 + bob + OY)
-    head = (25 + lean + OX + pose.get("head_dx", 0), neck[1] - hr + 3 + pose.get("head_dy", 0))
-
-    def foot(key):
-        fx, fy = pose[key]
-        return (hip[0] + fx, hip[1] + fy)
-
-    def hand(key):
-        hx, hy = pose[key]
-        return (shoulder[0] + hx, shoulder[1] + hy)
-
-    arm_w = 4 if tw < 15 else 5
-    leg_w = 5 if tw < 15 else 6
-    hand_col = accent if ch.get("cloak") else skin
-
-    # --- capa (detrás de todo)
-    if ch.get("cloak"):
+    hip = (0, 0)
+    neck = (lean, -11)
+    shoulder = (lean, -9)
+    head = (1 + lean + pose.get("head_dx", 0), -11 - hr + 3 + pose.get("head_dy", 0))
+    footF = pose["footF"]
+    footB = pose["footB"]
+    handF = (shoulder[0] + pose["handF"][0], shoulder[1] + pose["handF"][1])
+    handB = (shoulder[0] + pose["handB"][0], shoulder[1] + pose["handB"][1])
+    arm_w = 4.2 if tw < 15 else 5.2
+    leg_w = 5.0 if tw < 15 else 6.2
+    if ch.get("hakama"):
+        leg_w += 1.4
+    cloak = ch.get("cloak")
+    hand_col = gloves or (accent if cloak and ch["hair_style"] == "hood" else skin)
+    sleeve = top if cloak else skin
+    weapon = ch.get("weapon")
+    wang = pose.get("wa")
+    if wang is None:
+        wang = math.degrees(math.atan2(handF[1] - shoulder[1], handF[0] - shoulder[0])) - 20
+    # --- capa / mochila
+    if cloak:
         fl = pose.get("scarf", 0)
-        d.polygon([(neck[0] - 5, neck[1]), (neck[0] + 4, neck[1]), (hip[0] + 4, hip[1] + 10),
-                   (hip[0] - 14 - fl, hip[1] + 12 + fl // 2), (hip[0] - 10, hip[1] + 4)], fill=shade(top, 0.7))
-
-    # --- brazo de atrás y pierna de atrás
-    limb(d, (shoulder[0] - 2, shoulder[1]), hand("handB"), pose.get("elbowB", -2), arm_w,
-         shade(top if ch.get("cloak") else skin, 0.8), shade(hand_col, 0.8), arm_w / 2 + 0.8)
-    limb(d, (hip[0] - 2, hip[1]), foot("footB"), pose.get("kneeB", 3), leg_w, shade(pants, 0.78))
-    fb = foot("footB")
-    d.ellipse([fb[0] - 3, fb[1] - 2, fb[0] + 4, fb[1] + 2], fill=shade(shoes, 0.78))
-
-    # --- detalles de atrás (coleta, bufanda)
+        c.poly([(neck[0] - 5, neck[1]), (neck[0] + 4, neck[1]), (4, 11), (-15 - fl, 13 + fl / 2), (-10, 4)],
+               shade(top, 0.62))
+    if ch.get("jetpack"):
+        c.rect((neck[0] - 11, neck[1] + 1), (neck[0] - 5, neck[1] + 10), (110, 120, 140, 255))
+        c.rect((neck[0] - 10, neck[1] + 2), (neck[0] - 6, neck[1] + 4), (236, 128, 44, 255))
+        c.circle((neck[0] - 8, neck[1] + 11.5), 1.6, glow)
+    # --- brazo y pierna de atrás
+    limb(c, (shoulder[0] - 2, shoulder[1]), handB, pose.get("elbowB", -2), arm_w, shade(sleeve, 0.78),
+         shade(hand_col, 0.78), arm_w / 2 + 0.9)
+    limb(c, (-2, 0), footB, pose.get("kneeB", 3), leg_w, shade(pants, 0.76))
+    c.ellipse((footB[0] - 3.2, footB[1] - 2.2, footB[0] + 4.2, footB[1] + 2.0), shade(shoes, 0.76))
+    # --- detalles de atrás
     if ch["hair_style"] == "ponytail":
         sway = pose.get("tail", 0)
         base = (head[0] - hr + 2, head[1] - 2)
-        d.line([base, (base[0] - 5, base[1] + 2 + sway), (base[0] - 9, base[1] + 8 + sway)], fill=hair, width=4)
-        circle(d, (base[0] - 9, base[1] + 8 + sway), 2.2, hair)
+        c.line([base, (base[0] - 5, base[1] + 2 + sway), (base[0] - 9, base[1] + 8 + sway)], rgba(ch["hair"]), 4)
+        c.circle((base[0] - 9, base[1] + 8 + sway), 2.2, hair)
+    if ch.get("scarf") or ch["hair_style"] == "spiky":
         sc = pose.get("scarf", 0)
-        d.polygon([(neck[0] - 4, neck[1]), (neck[0] - 15, neck[1] + 3 + sc),
-                   (neck[0] - 14, neck[1] + 6 + sc), (neck[0] - 3, neck[1] + 4)], fill=accent)
-
+        col = accent
+        if ch.get("scarf"):
+            c.poly([(neck[0] - 4, neck[1]), (neck[0] - 16, neck[1] + 3 + sc), (neck[0] - 15, neck[1] + 6.5 + sc),
+                    (neck[0] - 3, neck[1] + 4)], col)
+    if ch["hair_style"] == "witch":
+        c.poly([(head[0] - hr + 1, head[1]), (head[0] - hr - 4 - pose.get("tail", 0), head[1] + 14),
+                (head[0] - 2, head[1] + 12), (head[0] + 2, head[1] + 2)], shade(hair, 0.9))
     # --- torso
     top_l, top_r = neck[0] - tw / 2, neck[0] + tw / 2
-    bot_l, bot_r = hip[0] - tw / 2 + 1, hip[0] + tw / 2 - 1
-    d.polygon([(top_l, neck[1]), (top_r, neck[1]), (bot_r, hip[1] + 1), (bot_l, hip[1] + 1)], fill=top)
-    d.polygon([(top_l, neck[1]), (top_l + 3, neck[1]), (bot_l + 3, hip[1] + 1), (bot_l, hip[1] + 1)],
-              fill=shade(top, 0.8))
-    if ch.get("cloak"):
-        d.line([(neck[0] + 1, neck[1] + 1), (hip[0] + 1, hip[1])], fill=accent, width=1)
+    bot_l, bot_r = -tw / 2 + 1, tw / 2 - 1
+    c.poly([(top_l, neck[1]), (top_r, neck[1]), (bot_r, 1), (bot_l, 1)], top)
+    c.poly([(top_l, neck[1]), (top_l + 3, neck[1]), (bot_l + 3, 1), (bot_l, 1)], shade(top, 0.8))
+    if ch["hair_style"] == "helmet":  # placas de armadura
+        c.line([(top_l + 2, neck[1] + 4), (top_r - 1, neck[1] + 4)], shade(top, 0.7), 0.7)
+        c.circle((neck[0] + 1.5, neck[1] + 6), 1.2, glow)
+    elif ch.get("hakama"):  # kimono cruzado
+        c.poly([(neck[0] - 2, neck[1]), (neck[0] + 3, neck[1]), (neck[0] + 1, neck[1] + 5)], accent)
+    elif ch["hair_style"] == "bolt":  # chaqueta con franja
+        c.line([(neck[0] + 1, neck[1]), (1, 0)], accent, 1.2)
+    elif not cloak:
+        c.line([(neck[0] + 2, neck[1] + 2), (neck[0] + 1, neck[1] + 7)], shade(top, 0.85), 0.6)
+    if cloak:
+        c.line([(neck[0] + 1, neck[1] + 1), (1, 0)], accent, 0.8)
     else:
-        d.rectangle([bot_l, hip[1] - 2, bot_r, hip[1]], fill=accent)
-    d.rectangle([bot_l, hip[1] + 1, bot_r, hip[1] + 4], fill=pants)
-
+        c.rect((bot_l, -2), (bot_r, 0), accent)
+        c.rect((1, -2.2), (2.5, 0.2), (240, 210, 90, 255))  # hebilla
+    c.rect((bot_l, 1), (bot_r, 4), pants)
     # --- pierna de adelante
-    limb(d, (hip[0] + 2, hip[1]), foot("footF"), pose.get("kneeF", 3), leg_w, pants)
-    ff = foot("footF")
-    d.ellipse([ff[0] - 3, ff[1] - 2, ff[0] + 5, ff[1] + 2], fill=shoes)
+    limb(c, (2, 0), footF, pose.get("kneeF", 3), leg_w, pants)
+    c.ellipse((footF[0] - 3.2, footF[1] - 2.2, footF[0] + 5.2, footF[1] + 2.0), shoes)
+    c.line([(footF[0] - 2.8, footF[1] + 1.6), (footF[0] + 4.8, footF[1] + 1.6)], shade(shoes, 1.5), 0.6)
 
     def front_arm():
-        limb(d, shoulder, hand("handF"), pose.get("elbowF", 3), arm_w, top if ch.get("cloak") else skin,
-             hand_col, arm_w / 2 + 1)
-        d.ellipse([shoulder[0] - 3, shoulder[1] - 3, shoulder[0] + 3, shoulder[1] + 3], fill=top)
+        limb(c, shoulder, handF, pose.get("elbowF", 3), arm_w, sleeve, hand_col, arm_w / 2 + 1)
+        c.circle((shoulder[0] - 0.5, shoulder[1] + 0.8), 2.4, top)
+        if weapon and weapon != "cannon":
+            draw_weapon(c, weapon, handF, wang, ch, pose.get("big"))
+        elif weapon == "cannon":
+            draw_weapon(c, weapon, handF, math.degrees(math.atan2(handF[1] - shoulder[1], handF[0] - shoulder[0])),
+                        ch)
+        if ch["hair_style"] == "bolt":
+            c.circle((handF[0] + 1.5, handF[1] - 1.5), 0.8, WHITE)
 
-    # brazo levantado: se dibuja detrás de la cabeza para no tapar la cara
-    arm_behind = pose["handF"][1] < -6
+    arm_behind = pose["handF"][1] < -6 and not weapon
     if arm_behind:
         front_arm()
 
     # --- cabeza
     hx, hy = head
-    d.ellipse([hx - hr, hy - hr + 1, hx + hr, hy + hr - 1], fill=skin)
     style = ch["hair_style"]
+    if style == "helmet":
+        c.ellipse((hx - hr - 0.5, hy - hr, hx + hr + 0.5, hy + hr), skin)
+        c.ellipse((hx - 1, hy - 4, hx + hr + 0.5, hy + 3), (30, 34, 50, 255))
+        c.ellipse((hx, hy - 3, hx + hr - 0.5, hy + 2), shade(glow, 0.7))
+        c.line([(hx + 1, hy - 1), (hx + hr - 1, hy - 1)], glow, 0.9)
+        c.line([(hx - 3, hy - hr), (hx - 5, hy - hr - 4)], (110, 120, 140, 255), 0.8)
+        c.circle((hx - 5, hy - hr - 4.5), 1.1, rgba(ch["hair"]))
+    else:
+        c.ellipse((hx - hr, hy - hr + 1, hx + hr, hy + hr - 1), skin)
+        c.ellipse((hx + hr - 3, hy + 1, hx + hr - 0.5, hy + 4), shade(skin, 1.08) if style != "hood" else skin)
     if style == "spiky":
-        pts = [(hx - hr, hy + 1), (hx - hr - 4, hy - 6), (hx - 6, hy - 5), (hx - 8, hy - hr - 6),
-               (hx - 1, hy - hr + 1), (hx + 2, hy - hr - 7), (hx + 5, hy - hr + 1),
-               (hx + hr + 1, hy - hr - 2), (hx + hr - 1, hy - 3), (hx + 4, hy - 4), (hx - 2, hy - 2)]
-        d.polygon(pts, fill=hair)
-        d.rectangle([hx - hr + 1, hy - 4, hx + hr - 1, hy - 2], fill=accent)
+        pts = [(hx - hr, hy + 1), (hx - hr - 4, hy - 6), (hx - 6, hy - 5), (hx - 8, hy - hr - 6), (hx - 1, hy - hr + 1),
+               (hx + 2, hy - hr - 7), (hx + 5, hy - hr + 1), (hx + hr + 1, hy - hr - 2), (hx + hr - 1, hy - 3),
+               (hx + 4, hy - 4), (hx - 2, hy - 2)]
+        c.poly(pts, hair)
+        c.line([(hx - 5, hy - hr - 1), (hx - 1, hy - hr + 2)], shade(hair, 1.3), 0.6)
+        c.rect((hx - hr + 1, hy - 4), (hx + hr - 1, hy - 2), accent)
         t = pose.get("tail", 0)
-        d.polygon([(hx - hr + 1, hy - 4), (hx - hr - 7, hy - 2 + t), (hx - hr - 6, hy + 1 + t),
-                   (hx - hr + 1, hy - 2)], fill=accent)
+        c.poly([(hx - hr + 1, hy - 4), (hx - hr - 8, hy - 2 + t), (hx - hr - 7, hy + 1.5 + t), (hx - hr + 1, hy - 2)],
+               accent)
     elif style == "ponytail":
-        d.pieslice([hx - hr - 1, hy - hr, hx + hr + 1, hy + hr], 180, 360, fill=hair)
-        d.polygon([(hx - hr, hy - 1), (hx - hr + 3, hy - 2), (hx - hr + 4, hy + 5), (hx - hr, hy + 4)], fill=hair)
-        d.polygon([(hx + 1, hy - hr + 1), (hx + hr + 1, hy - 3), (hx + 3, hy - 3)], fill=hair)
+        c.d.pieslice([*c.P((hx - hr - 1, hy - hr)), *c.P((hx + hr + 1, hy + hr))], 180, 360, fill=hair)
+        c.poly([(hx - hr, hy - 1), (hx - hr + 3, hy - 2), (hx - hr + 4, hy + 5), (hx - hr, hy + 4)], hair)
+        c.poly([(hx + 1, hy - hr + 1), (hx + hr + 1, hy - 3), (hx + 3, hy - 3)], hair)
+        c.line([(hx - 4, hy - hr + 1), (hx + 3, hy - hr + 2)], shade(hair, 1.35), 0.6)
     elif style == "horns":
-        horn = (240, 235, 210, 255)
-        d.polygon([(hx - 7, hy - hr + 3), (hx - 10, hy - hr - 6), (hx - 3, hy - hr + 1)], fill=horn)
-        d.polygon([(hx + 2, hy - hr + 1), (hx + 7, hy - hr - 7), (hx + 8, hy - hr + 3)], fill=horn)
-        d.pieslice([hx - hr, hy - hr + 1, hx + hr, hy + hr], 195, 345, fill=hair)
+        horn = (242, 236, 214, 255)
+        c.poly([(hx - 7, hy - hr + 3), (hx - 10, hy - hr - 6), (hx - 3, hy - hr + 1)], horn)
+        c.poly([(hx + 2, hy - hr + 1), (hx + 7, hy - hr - 7), (hx + 8, hy - hr + 3)], horn)
+        c.d.pieslice([*c.P((hx - hr, hy - hr + 1)), *c.P((hx + hr, hy + hr))], 195, 345, fill=hair)
     elif style == "hood":
-        d.polygon([(hx - hr - 2, hy + hr - 1), (hx - hr - 3, hy - 2), (hx - 4, hy - hr - 4),
-                   (hx + 4, hy - hr - 2), (hx + hr + 2, hy - 3), (hx + hr + 1, hy + 2),
-                   (hx + 4, hy - 4), (hx - 2, hy + 1), (hx - 3, hy + hr)], fill=hair)
-        d.line([(hx - 4, hy - hr - 3), (hx + hr, hy - 3)], fill=shade(hair, 1.3), width=1)
+        c.poly([(hx - hr - 2, hy + hr - 1), (hx - hr - 3, hy - 2), (hx - 4, hy - hr - 4), (hx + 4, hy - hr - 2),
+                (hx + hr + 2, hy - 3), (hx + hr + 1, hy + 2), (hx + 4, hy - 4), (hx - 2, hy + 1), (hx - 3, hy + hr)],
+               hair)
+        c.line([(hx - 4, hy - hr - 3), (hx + hr, hy - 3)], shade(hair, 1.3), 0.7)
+    elif style == "topknot":
+        c.d.pieslice([*c.P((hx - hr - 0.5, hy - hr)), *c.P((hx + hr + 0.5, hy + hr))], 185, 355, fill=hair)
+        c.poly([(hx - hr, hy - 1), (hx - hr + 3, hy - 3), (hx - hr + 3, hy + 4), (hx - hr, hy + 3)], hair)
+        c.circle((hx - 3, hy - hr - 2), 3.0, hair)
+        c.rect((hx - 4.5, hy - hr + 0.2), (hx - 1.5, hy - hr + 1.2), accent)
+        c.line([(hx - 7 - pose.get("tail", 0), hy - hr - 1), (hx - 4, hy - hr)], accent, 0.8)
+    elif style == "bolt":
+        pts = [(hx - hr, hy + 2), (hx - hr - 5, hy - 3), (hx - hr + 1, hy - 4), (hx - 6, hy - hr - 8),
+               (hx - 2, hy - hr - 1), (hx + 1, hy - hr - 9), (hx + 3, hy - hr), (hx + hr + 3, hy - hr - 5),
+               (hx + hr, hy - 3), (hx + 3, hy - 4), (hx - 2, hy - 2)]
+        c.poly(pts, hair)
+        c.line([(hx - 5, hy - hr - 5), (hx - 2, hy - hr)], WHITE, 0.6)
+        if ch.get("goggles"):
+            c.rect((hx - hr + 0.5, hy - 5.5), (hx + hr - 0.5, hy - 4), (60, 60, 70, 255))
+            c.circle((hx + 2, hy - 5), 1.7, (120, 220, 255, 255))
+            c.circle((hx + 6, hy - 5), 1.7, (120, 220, 255, 255))
+    elif style == "witch":
+        c.d.pieslice([*c.P((hx - hr - 0.5, hy - hr)), *c.P((hx + hr + 0.5, hy + hr))], 180, 360, fill=hair)
+        c.poly([(hx + 1, hy - hr + 1), (hx + hr + 1, hy - 2), (hx + 3, hy - 3)], hair)
+        hat = rgba(ch["top"])
+        c.ellipse((hx - hr - 5, hy - hr + 0.5, hx + hr + 5, hy - hr + 4), shade(hat, 0.75))
+        tip_sway = pose.get("tail", 0)
+        c.poly([(hx - 7, hy - hr + 2), (hx + 7, hy - hr + 2), (hx + 1, hy - hr - 8), (hx - 6 - tip_sway, hy - hr - 15)],
+               hat)
+        c.rect((hx - 7, hy - hr + 0.4), (hx + 7, hy - hr + 2), accent)
 
     # --- cara
-    ex = hx + 2
-    ey = hy - 1
+    ex, ey = hx + 2, hy - 1
     if style == "hood":
-        glow_eye = pose.get("hurt") and (255, 120, 160, 255) or eye
+        glow_eye = (255, 120, 160, 255) if pose.get("hurt") else eye
         for ox in (1, 6):
-            d.rectangle([ex + ox, ey - 1, ex + ox + 1, ey], fill=glow_eye)
+            c.rect((ex + ox, ey - 1.2), (ex + ox + 1.5, ey + 0.5), glow_eye)
+    elif style == "helmet":
+        pass
     elif pose.get("hurt"):
         for ox in (0, 5):
-            d.line([(ex + ox - 1, ey - 2), (ex + ox + 2, ey + 1)], fill=eye, width=1)
-            d.line([(ex + ox + 2, ey - 2), (ex + ox - 1, ey + 1)], fill=eye, width=1)
-        d.ellipse([ex + 2, ey + 4, ex + 5, ey + 7], fill=(120, 30, 40, 255))
+            c.line([(ex + ox - 1, ey - 2), (ex + ox + 2, ey + 1)], rgba((40, 20, 30)), 0.8)
+            c.line([(ex + ox + 2, ey - 2), (ex + ox - 1, ey + 1)], rgba((40, 20, 30)), 0.8)
+        c.ellipse((ex + 2, ey + 4, ex + 5, ey + 7), (120, 30, 40, 255))
     else:
         happy = pose.get("happy")
         for ox in (0, 5):
             if happy:
-                d.line([(ex + ox - 1, ey), (ex + ox, ey - 2), (ex + ox + 2, ey)], fill=eye, width=1)
+                c.line([(ex + ox - 1, ey), (ex + ox + 0.5, ey - 2), (ex + ox + 2, ey)], rgba((40, 20, 30)), 0.8)
             else:
-                d.rectangle([ex + ox, ey - 2, ex + ox + 1, ey + 1], fill=WHITE)
-                d.rectangle([ex + ox + 1, ey - 1, ex + ox + 1, ey + 1], fill=eye)
+                c.rect((ex + ox - 0.3, ey - 2.3), (ex + ox + 1.8, ey + 1.4), WHITE)
+                c.rect((ex + ox + 0.6, ey - 1.6), (ex + ox + 1.8, ey + 1.4), eye)
+                c.rect((ex + ox + 1.0, ey - 0.8), (ex + ox + 1.8, ey + 1.0), (20, 16, 24, 255))
+                c.rect((ex + ox + 0.6, ey - 1.6), (ex + ox + 1.0, ey - 1.1), WHITE)
+                c.line([(ex + ox - 0.5, ey - 3.3), (ex + ox + 2, ey - 3.6)], shade(ch["hair"], 0.7), 0.6)
         if happy:
-            d.pieslice([ex + 1, ey + 2, ex + 7, ey + 8], 0, 180, fill=(150, 40, 50, 255))
+            c.d.pieslice([*c.P((ex + 1, ey + 2)), *c.P((ex + 7, ey + 8))], 0, 180, fill=(150, 40, 50, 255))
         else:
-            d.line([(ex + 1, ey + 5), (ex + 5, ey + 5)], fill=(150, 60, 60, 255), width=1)
+            c.line([(ex + 1.5, ey + 5), (ex + 5, ey + 5)], (160, 70, 70, 255), 0.6)
         if style == "horns":
-            d.rectangle([ex + 1, ey + 3, ex + 1, ey + 4], fill=WHITE)
-            d.rectangle([ex + 5, ey + 3, ex + 5, ey + 4], fill=WHITE)
+            c.rect((ex + 1, ey + 3.5), (ex + 1.6, ey + 5), WHITE)
+            c.rect((ex + 5, ey + 3.5), (ex + 5.6, ey + 5), WHITE)
+        c.circle((ex - 1, ey + 3), 1.0, shade(skin, 0.92)[:3] + (255,))  # mejilla
 
-    # --- brazo de adelante
     if not arm_behind:
         front_arm()
 
-    # --- efectos
+    # --- efectos dibujados en el sprite
     fx = pose.get("effect")
-    if fx == "slash":
-        hxp, hyp = hand("handF")
-        outer, inner = [], []
-        for a in range(-70, 71, 14):
-            r = 13 + pose.get("slash_r", 0)
-            outer.append((hxp - 2 + math.cos(math.radians(a)) * r, hyp + math.sin(math.radians(a)) * r))
-        for a in range(70, -71, -14):
-            r = 8 + pose.get("slash_r", 0)
-            inner.append((hxp - 2 + math.cos(math.radians(a)) * r, hyp + math.sin(math.radians(a)) * r))
-        d.polygon(outer + inner, fill=(255, 255, 255, 235))
-        d.line(outer, fill=glow, width=2)
-    elif fx == "sparkle":
+    if fx == "sparkle":
         for (sx, sy) in pose.get("sparks", []):
-            d.line([(sx - 2, sy), (sx + 2, sy)], fill=glow, width=1)
-            d.line([(sx, sy - 2), (sx, sy + 2)], fill=glow, width=1)
+            c.line([(sx - 2.5, sy), (sx + 2.5, sy)], glow, 0.8)
+            c.line([(sx, sy - 2.5), (sx, sy + 2.5)], glow, 0.8)
+            c.circle((sx, sy), 0.7, WHITE)
     orb = pose.get("orb", 0)
     if orb:
-        ox, oy = hand("handF")
-        ox += 4
-        circle(d, (ox, oy), orb + 2, shade(glow, 0.9))
-        circle(d, (ox, oy), orb, WHITE)
-        circle(d, (ox, oy), max(1, orb - 2), glow)
+        o = (handF[0] + 4, handF[1])
+        c.circle(o, orb + 2, shade(glow, 0.85))
+        c.circle(o, orb, WHITE)
+        c.circle(o, max(1, orb - 2), glow)
+
+    img = c.img
+    rot = pose.get("rot", 0)
+    if rot:
+        center = c.P((0, -9))
+        img = img.rotate(-rot, resample=Image.NEAREST, center=center)
     return finish(img)
 
 
-def stance(footF, footB, handF, handB, **extra):
+# ---------------------------------------------------------------- poses
+def st(footF=(6, 12), footB=(-5, 12), handF=(8, 3), handB=(2, 6), **extra):
     p = dict(footF=footF, footB=footB, handF=handF, handB=handB)
     p.update(extra)
     return p
 
 
-def taunt_poses(kind):
-    if kind == "flex":  # puño en alto
-        return [stance((6, 12), (-5, 12), (8, 2), (2, 6)),
-                stance((6, 12), (-5, 12), (6, -12), (2, 6), bob=-1, happy=True),
-                stance((6, 12), (-5, 12), (7, -14), (-3, 4), bob=-1, happy=True, effect="sparkle",
-                        sparks=[(46, 12), (52, 20)]),
-                stance((6, 12), (-5, 12), (6, -12), (2, 6), happy=True)]
-    if kind == "sign":  # sello ninja
-        return [stance((5, 12), (-5, 12), (6, 2), (5, 3)),
-                stance((5, 12), (-5, 12), (5, -2), (4, -2), tail=2, scarf=2),
-                stance((5, 12), (-5, 12), (5, -3), (4, -3), tail=3, scarf=3, effect="sparkle",
-                        sparks=[(44, 26), (50, 18), (40, 16)]),
-                stance((5, 12), (-5, 12), (5, -2), (4, -2), tail=1, scarf=1)]
-    if kind == "pound":  # golpearse el pecho
-        return [stance((8, 12), (-7, 12), (2, 4), (-2, 4), lean=-1),
-                stance((8, 12), (-7, 12), (-1, 8), (1, 7), lean=1, happy=True),
-                stance((8, 12), (-7, 12), (4, 1), (-4, 2), lean=-1, head_dy=-1, happy=True),
-                stance((8, 12), (-7, 12), (-1, 8), (1, 7), lean=1, happy=True)]
-    # float: brazos abiertos flotando
-    return [stance((4, 10), (-4, 11), (9, 0), (-8, 1), bob=-1, scarf=1),
-            stance((4, 9), (-4, 10), (11, -4), (-10, -3), bob=-2, scarf=2, effect="sparkle",
-                   sparks=[(50, 20), (22, 22)]),
-            stance((4, 8), (-4, 9), (12, -6), (-11, -5), bob=-3, scarf=3, effect="sparkle",
-                   sparks=[(52, 16), (20, 18), (36, 8)]),
-            stance((4, 9), (-4, 10), (11, -4), (-10, -3), bob=-2, scarf=2)]
+def fist_attacks():
+    return {
+        "jab1": [st(handF=(5, 3), handB=(1, 5)), st(handF=(16, 0), lean=2, footF=(8, 12)),
+                 st(handF=(10, 2), lean=1)],
+        "jab2": [st(handB=(7, 2), handF=(3, 4), lean=1), st(handB=(16, -1), handF=(0, 4), lean=3, footF=(9, 12)),
+                 st(handB=(9, 3), handF=(3, 4), lean=2)],
+        "jab3": [st(footF=(7, 4), kneeF=-9, handF=(6, -2), handB=(-6, 2), lean=-2),
+                 st(footF=(20, -3), kneeF=-2, lean=-4, handF=(2, -4), handB=(-8, 0)),
+                 st(footF=(20, -2), kneeF=-2, lean=-4, handF=(2, -4), handB=(-8, 0)),
+                 st(footF=(10, 8), lean=-1)],
+        "ftilt": [st(footF=(6, 3), kneeF=-9, lean=-2, handF=(4, 0)), st(footF=(22, 2), kneeF=-1, lean=-5, handF=(0, -2),
+                                                                         handB=(-8, 2)),
+                  st(footF=(21, 3), kneeF=-1, lean=-5, handF=(0, -2), handB=(-8, 2)), st(footF=(9, 10), lean=-1)],
+        "utilt": [st(handF=(6, 6), bob=2, lean=1), st(handF=(8, -12), bob=-1), st(handF=(3, -20), bob=-2, head_dy=-1),
+                  st(handF=(4, -8))],
+        "dtilt": [st(footF=(10, 4), footB=(-7, 4), kneeF=-7, kneeB=-7, bob=8, lean=3, handF=(8, 4)),
+                  st(footF=(23, 4), footB=(-7, 4), kneeF=-2, kneeB=-7, bob=8, lean=4, handF=(6, 6), handB=(0, 8)),
+                  st(footF=(22, 4), footB=(-7, 4), kneeF=-2, kneeB=-7, bob=8, lean=4, handF=(6, 6), handB=(0, 8)),
+                  st(footF=(12, 4), footB=(-7, 4), kneeF=-7, kneeB=-7, bob=8, lean=3)],
+        "dash": [st(lean=5, handF=(10, 0), footF=(10, 11), footB=(-9, 9)),
+                 st(footF=(19, -1), footB=(-8, 9), kneeF=-2, lean=6, bob=-2, handF=(4, -4), handB=(-8, -2)),
+                 st(footF=(19, 0), footB=(-8, 9), kneeF=-2, lean=6, bob=-2, handF=(4, -4), handB=(-8, -2)),
+                 st(lean=2)],
+        "smash": [st(bob=3, lean=-4, handF=(-8, 3), handB=(-6, 5), footF=(10, 12), footB=(-8, 12), kneeF=-5, kneeB=-5),
+                  st(bob=2, lean=-6, handF=(-11, 0), handB=(-7, 4), footF=(10, 12), footB=(-8, 12)),
+                  st(lean=7, handF=(19, -1), handB=(-6, 4), footF=(13, 12), footB=(-11, 12)),
+                  st(lean=6, handF=(18, 1), handB=(-5, 5), footF=(13, 12), footB=(-11, 12)),
+                  st(lean=2, handF=(10, 3))],
+        "nair": [st(footF=(8, 10), footB=(-8, 10), handF=(12, -2), handB=(-11, -2), kneeF=0, kneeB=0, rot=r)
+                 for r in (0, 90, 180, 270)],
+        "fair": [st(handF=(4, -10), footF=(6, 6), kneeF=-6), st(handF=(16, -2), lean=3, footF=(10, 6), kneeF=-6),
+                 st(handF=(14, 6), lean=3, footF=(9, 7), kneeF=-6), st(handF=(8, 4), footF=(6, 8))],
+        "bair": [st(lean=2, footB=(-6, 6), kneeB=6, footF=(5, 8)),
+                 st(footB=(-21, 2), kneeB=2, lean=5, handF=(8, 4), handB=(2, 6), footF=(5, 8)),
+                 st(footB=(-20, 3), kneeB=2, lean=5, handF=(8, 4), handB=(2, 6), footF=(5, 8)),
+                 st(footB=(-8, 8), lean=2, footF=(5, 9))],
+        "uair": [st(handF=(6, -4), footF=(6, 8), kneeF=-5),
+                 st(handF=(4, -19), lean=-1, footF=(7, 6), kneeF=-6, bob=-2, rot=-15),
+                 st(handF=(-2, -18), footF=(7, 6), kneeF=-6, bob=-2, rot=-25), st(handF=(6, 0), footF=(6, 9))],
+        "dair": [st(footF=(6, 6), footB=(-3, 8), kneeF=-6, kneeB=-6, handF=(6, -8), handB=(-6, -8)),
+                 st(footF=(3, 17), footB=(-2, 17), kneeF=0, kneeB=0, handF=(8, -10), handB=(-7, -10)),
+                 st(footF=(3, 17), footB=(-2, 17), kneeF=0, kneeB=0, handF=(8, -10), handB=(-7, -10)),
+                 st(footF=(6, 10), footB=(-3, 11), handF=(6, -2))],
+    }
+
+
+def weapon_attacks():
+    return {
+        "jab1": [st(handF=(4, -6), wa=-110), st(handF=(15, 2), wa=10, lean=2), st(handF=(10, 4), wa=35, lean=1)],
+        "jab2": [st(handF=(8, 6), wa=60), st(handF=(12, -8), wa=-60, lean=2), st(handF=(6, -10), wa=-100, lean=1)],
+        "jab3": [st(handF=(-2, -12), wa=-140, lean=-2), st(handF=(17, -2), wa=0, lean=5, footF=(12, 12)),
+                 st(handF=(17, -1), wa=2, lean=5, footF=(12, 12)), st(handF=(9, 2), wa=-30)],
+        "ftilt": [st(handF=(2, 2), wa=0, lean=-2), st(handF=(19, 0), wa=0, lean=6, footF=(13, 12), footB=(-10, 12)),
+                  st(handF=(18, 1), wa=0, lean=6, footF=(13, 12), footB=(-10, 12)), st(handF=(9, 2), wa=-20)],
+        "utilt": [st(handF=(10, 2), wa=0), st(handF=(8, -12), wa=-60), st(handF=(0, -16), wa=-120),
+                  st(handF=(-6, -10), wa=-170)],
+        "dtilt": [st(handF=(6, 6), wa=40, bob=7, footF=(9, 5), footB=(-7, 5), kneeF=-6, kneeB=-6),
+                  st(handF=(17, 8), wa=8, bob=7, lean=4, footF=(10, 5), footB=(-8, 5), kneeF=-6, kneeB=-6),
+                  st(handF=(17, 9), wa=4, bob=7, lean=4, footF=(10, 5), footB=(-8, 5), kneeF=-6, kneeB=-6),
+                  st(handF=(8, 5), wa=30, bob=7, footF=(9, 5), footB=(-7, 5), kneeF=-6, kneeB=-6)],
+        "dash": [st(handF=(10, 0), wa=0, lean=5), st(handF=(19, 0), wa=0, lean=7, footF=(15, 10), footB=(-10, 10)),
+                 st(handF=(19, 1), wa=0, lean=7, footF=(15, 10), footB=(-10, 10)), st(handF=(10, 2), wa=-20, lean=2)],
+        "smash": [st(handF=(-8, -10), wa=-150, lean=-4, bob=2, footF=(10, 12), footB=(-8, 12)),
+                  st(handF=(-6, -14), wa=-170, lean=-5, bob=1, footF=(10, 12), footB=(-8, 12), big=True),
+                  st(handF=(17, 4), wa=30, lean=7, footF=(13, 12), footB=(-11, 12), big=True),
+                  st(handF=(13, 8), wa=60, lean=6, footF=(13, 12), footB=(-11, 12)), st(handF=(9, 3), wa=-20, lean=2)],
+        "nair": [st(footF=(8, 10), footB=(-8, 10), handF=(12, 0), handB=(-11, -2), wa=0, kneeF=0, kneeB=0, rot=r)
+                 for r in (0, 90, 180, 270)],
+        "fair": [st(handF=(0, -12), wa=-120, footF=(6, 7), kneeF=-6), st(handF=(15, -2), wa=0, lean=3, footF=(8, 7)),
+                 st(handF=(12, 8), wa=60, lean=3, footF=(8, 7)), st(handF=(8, 4), wa=20)],
+        "bair": [st(handF=(4, 2), wa=0), st(handF=(-15, 0), wa=180, lean=3, handB=(4, 4)),
+                 st(handF=(-15, 1), wa=178, lean=3, handB=(4, 4)), st(handF=(2, 4), wa=90)],
+        "uair": [st(handF=(8, -4), wa=-30), st(handF=(2, -18), wa=-90, bob=-2), st(handF=(-6, -14), wa=-150, bob=-2),
+                 st(handF=(6, 0), wa=-20)],
+        "dair": [st(handF=(4, -8), wa=-90, footF=(6, 7), kneeF=-6), st(handF=(4, 12), wa=90, footF=(6, 6), kneeF=-7),
+                 st(handF=(4, 13), wa=90, footF=(6, 6), kneeF=-7), st(handF=(8, 2), wa=30)],
+    }
+
+
+def taunt_poses(kind, weapon):
+    sp = lambda pts: dict(effect="sparkle", sparks=pts)  # noqa: E731
+    if kind == "flex":
+        base = [st(handF=(8, 2)), st(handF=(6, -12), bob=-1, happy=True),
+                st(handF=(7, -14), handB=(-3, 4), bob=-1, happy=True, **sp([(10, -30), (14, -24)])),
+                st(handF=(6, -12), happy=True)]
+    elif kind == "sign":
+        base = [st(handF=(6, 2), handB=(5, 3), footF=(5, 12)), st(handF=(5, -2), handB=(4, -2), tail=2, scarf=2),
+                st(handF=(5, -3), handB=(4, -3), tail=3, scarf=3, **sp([(8, -16), (12, -22), (4, -24)])),
+                st(handF=(5, -2), handB=(4, -2), tail=1, scarf=1)]
+    elif kind == "pound":
+        base = [st(handF=(2, 4), handB=(-2, 4), lean=-1, footF=(8, 12), footB=(-7, 12)),
+                st(handF=(-1, 8), handB=(1, 7), lean=1, happy=True), st(handF=(4, 1), handB=(-4, 2), lean=-1, head_dy=-1,
+                                                                       happy=True),
+                st(handF=(-1, 8), handB=(1, 7), lean=1, happy=True)]
+    elif kind == "bow":
+        base = [st(handF=(6, 6), wa=80), st(handF=(5, 8), wa=90, lean=3, head_dy=2),
+                st(handF=(5, 8), wa=90, lean=4, head_dy=3, **sp([(16, -6)])), st(handF=(6, -2), wa=-60)]
+    elif kind == "salute":
+        base = [st(handF=(6, 2)), st(handF=(3, -11), bob=-1), st(handF=(3, -12), bob=-1, **sp([(10, -26)])),
+                st(handF=(3, -11))]
+    else:  # float
+        base = [st(footF=(4, 10), footB=(-4, 11), handF=(9, 0), handB=(-8, 1), bob=-1, scarf=1),
+                st(footF=(4, 9), footB=(-4, 10), handF=(11, -4), handB=(-10, -3), bob=-2, scarf=2,
+                   **sp([(20, -14), (-12, -12)])),
+                st(footF=(4, 8), footB=(-4, 9), handF=(12, -6), handB=(-11, -5), bob=-3, scarf=3,
+                   **sp([(22, -18), (-14, -16), (4, -30)])),
+                st(footF=(4, 9), footB=(-4, 10), handF=(11, -4), handB=(-10, -3), bob=-2, scarf=2)]
+    return base + [base[1], base[2]]
 
 
 def build_poses(ch):
-    poses = {}
-    idle = []
-    for i, (bob, hy) in enumerate([(0, 3), (0, 2), (1, 1), (1, 2)]):
-        idle.append(stance((6, 12 - bob), (-5, 12 - bob), (8, hy + 1), (2, 6 + (i % 2)),
-                           bob=bob, tail=[0, 1, 2, 1][i], scarf=[0, 1, 2, 1][i]))
-    poses["idle"] = idle
-    run = []
-    for i in range(6):
-        p = i / 6.0 * math.tau
-        s, c = math.sin(p), math.cos(p)
-        run.append(stance(
-            (s * 9 + 1, 12 - max(0, c) * 5), (-s * 9 + 1, 12 - max(0, -c) * 5),
-            (-s * 7 + 4, 5 - abs(c) * 2), (s * 7 + 2, 5 - abs(c) * 2),
-            lean=3, bob=round(abs(s) * 1.2), tail=round(c * 2), scarf=round(-c * 2),
-            kneeF=-3, kneeB=-3, elbowF=-3, elbowB=-3))
-    poses["run"] = run
-    poses["jump"] = [stance((7, 8), (-1, 10), (9, -8), (-5, -5), bob=-2, tail=-3, scarf=-3, kneeF=-5, kneeB=4)]
-    poses["fall"] = [stance((8, 12), (-7, 11), (11, -2), (-9, -1), tail=-4, scarf=-4)]
-    poses["attack"] = [
-        stance((9, 12), (-6, 12), (-4, 4), (-2, 6), lean=-2, elbowF=-4),
-        stance((9, 12), (-6, 12), (13, 1), (-3, 5), lean=3, effect="slash", slash_r=-3),
-        stance((10, 12), (-7, 12), (17, 0), (-4, 5), lean=4, effect="slash", slash_r=1),
-        stance((10, 12), (-7, 12), (17, 1), (-4, 5), lean=4, effect="slash", slash_r=3),
-        stance((8, 12), (-5, 12), (9, 3), (0, 6), lean=1),
-    ]
-    poses["special"] = [
-        stance((8, 12), (-6, 12), (-5, 3), (-6, 4), lean=-2, bob=1),
-        stance((8, 12), (-6, 12), (8, 4), (6, 5), orb=3),
-        stance((9, 12), (-7, 12), (13, 2), (11, 3), lean=3, orb=5),
-        stance((9, 12), (-6, 12), (15, 1), (13, 2), lean=3),
-    ]
-    poses["hurt"] = [stance((6, 9), (-6, 11), (8, -8), (-4, -6), lean=-4, head_dx=-2, hurt=True,
-                            bob=-1, tail=-3, scarf=-3, kneeF=-4)]
-    poses["shield"] = [stance((8, 12), (-7, 12), (7, 2), (6, 4), lean=2, bob=3, kneeF=-6, kneeB=-6)]
-    poses["crouch"] = [stance((8, 4), (-7, 4), (8, 4), (3, 6), bob=8, lean=3, kneeF=-7, kneeB=-7),
-                       stance((8, 4), (-7, 4), (8, 5), (3, 7), bob=9, lean=3, kneeF=-7, kneeB=-7)]
-    poses["taunt"] = taunt_poses(ch["taunt"])
-    poses["win"] = [
-        stance((7, 8), (-6, 8), (6, 4), (-4, 4), bob=4, kneeF=-6, kneeB=-6, happy=True),
-        stance((5, 12), (-4, 12), (7, -16), (-6, -15), bob=-6, happy=True, tail=-3, scarf=-3),
-        stance((5, 10), (-4, 11), (9, -17), (-8, -15), bob=-9, happy=True, tail=-4, scarf=-4,
-               effect="sparkle", sparks=[(50, 10), (20, 12)]),
-        stance((5, 12), (-4, 12), (6, -16), (-5, -15), bob=-5, happy=True, tail=-2, scarf=-2),
-        stance((7, 9), (-6, 9), (7, -14), (-6, -13), bob=3, happy=True, kneeF=-5, kneeB=-5),
-        stance((6, 12), (-5, 12), (7, -15), (-3, 5), happy=True, effect="sparkle", sparks=[(48, 8)]),
-    ]
-    poses["ledge"] = [stance((3, 12), (-3, 13), (5, -15), (0, -15), kneeF=-3, kneeB=3, tail=2, scarf=2)]
-    poses["upspecial"] = [
-        stance((4, 12), (-3, 13), (5, -17), (-4, 3), lean=2, bob=-2, kneeF=-3, tail=4, scarf=4),
-        stance((2, 14), (-3, 13), (6, -18), (-5, 5), lean=2, bob=-3, tail=5, scarf=5, effect="sparkle",
-               sparks=[(44, 4), (40, 10)]),
-    ]
-    return poses
+    wpn = ch.get("weapon") in ("katana", "club", "staff")
+    guard_wa = {"katana": -45, "club": -60, "staff": -80}.get(ch.get("weapon"))
+    P = {}
+    P["idle"] = [st(footF=(6, 12 - b), footB=(-5, 12 - b), handF=(7 if wpn else 8, h), handB=(2, 6 + i % 2), bob=b,
+                    tail=t, scarf=t, wa=guard_wa)
+                 for i, (b, h, t) in enumerate([(0, 3, 0), (0, 2, 1), (1, 2, 2), (1, 1, 2), (1, 2, 1), (0, 3, 0)])]
+    walk, run = [], []
+    for i in range(8):
+        p = i / 8.0 * math.tau
+        s, co = math.sin(p), math.cos(p)
+        walk.append(st(footF=(s * 6 + 1, 12 - max(0, co) * 3), footB=(-s * 6 + 1, 12 - max(0, -co) * 3),
+                       handF=(-s * 3 + 6, 4), handB=(s * 4 + 1, 6), lean=1, bob=round(abs(s) * 0.8),
+                       tail=round(co), scarf=round(-co), wa=guard_wa))
+        run.append(st(footF=(s * 10 + 1, 12 - max(0, co) * 5), footB=(-s * 10 + 1, 12 - max(0, -co) * 5),
+                      handF=(-s * 7 + 4, 5 - abs(co) * 2), handB=(s * 7 + 2, 5 - abs(co) * 2), lean=4,
+                      bob=round(abs(s) * 1.4), tail=round(co * 2), scarf=round(-co * 2), kneeF=-3, kneeB=-3,
+                      elbowF=-3, elbowB=-3, wa=(guard_wa or 0) + 25 if wpn else None))
+    P["walk"], P["run"] = walk, run
+    P["jump"] = [st(footF=(7, 8), footB=(-1, 10), handF=(9, -8), handB=(-5, -5), bob=-2, tail=-3, scarf=-3, kneeF=-5,
+                    kneeB=4, wa=guard_wa),
+                 st(footF=(6, 9), footB=(0, 11), handF=(10, -5), handB=(-6, -3), bob=-1, tail=-2, scarf=-2, kneeF=-4,
+                    wa=guard_wa)]
+    P["fall"] = [st(footF=(8, 12), footB=(-7, 11), handF=(11, -2), handB=(-9, -1), tail=-4, scarf=-4, wa=guard_wa),
+                 st(footF=(7, 12), footB=(-6, 12), handF=(11, 0), handB=(-10, 1), tail=-5, scarf=-5, wa=guard_wa)]
+    P["crouch"] = [st(footF=(8, 4), footB=(-7, 4), handF=(8, 4), handB=(3, 6), bob=8, lean=3, kneeF=-7, kneeB=-7,
+                      wa=20 if wpn else None),
+                   st(footF=(8, 4), footB=(-7, 4), handF=(8, 5), handB=(3, 7), bob=9, lean=3, kneeF=-7, kneeB=-7,
+                      wa=22 if wpn else None)]
+    P["shield"] = [st(footF=(8, 12), footB=(-7, 12), handF=(7, 2), handB=(6, 4), lean=2, bob=3, kneeF=-6, kneeB=-6,
+                      wa=-80 if wpn else None)]
+    P["dodge"] = [st(footF=(5, 5), footB=(-1, 6), handF=(6, 3), handB=(3, 5), bob=7, kneeF=-8, kneeB=-8, rot=r,
+                     wa=guard_wa) for r in (0, 120, 240)]
+    P["hurt"] = [st(footF=(6, 9), footB=(-6, 11), handF=(8, -8), handB=(-4, -6), lean=-4, head_dx=-2, hurt=True, bob=-1,
+                    tail=-3, scarf=-3, kneeF=-4, wa=-120),
+                 st(footF=(7, 8), footB=(-7, 10), handF=(10, -6), handB=(-6, -8), lean=-6, head_dx=-3, hurt=True,
+                    bob=-2, tail=-4, scarf=-4, kneeF=-5, wa=-150)]
+    P["ledge"] = [st(footF=(3, 12), footB=(-3, 13), handF=(5, -15), handB=(0, -15), kneeF=-3, kneeB=3, tail=2, scarf=2,
+                     wa=-100),
+                  st(footF=(4, 12), footB=(-2, 13), handF=(5, -15), handB=(0, -15), kneeF=-4, kneeB=2, tail=3,
+                     scarf=3, wa=-100)]
+    P["taunt"] = taunt_poses(ch["taunt"], ch.get("weapon"))
+    win = [st(footF=(7, 8), footB=(-6, 8), handF=(6, 4), handB=(-4, 4), bob=4, kneeF=-6, kneeB=-6, happy=True),
+           st(footF=(5, 12), footB=(-4, 12), handF=(7, -16), handB=(-6, -15), bob=-6, happy=True, tail=-3, scarf=-3,
+              wa=-80),
+           st(footF=(5, 10), footB=(-4, 11), handF=(9, -17), handB=(-8, -15), bob=-9, happy=True, tail=-4, scarf=-4,
+              effect="sparkle", sparks=[(18, -34), (-12, -30)], wa=-70),
+           st(footF=(5, 12), footB=(-4, 12), handF=(6, -16), handB=(-5, -15), bob=-5, happy=True, tail=-2, scarf=-2,
+              wa=-85),
+           st(footF=(7, 9), footB=(-6, 9), handF=(7, -14), handB=(-6, -13), bob=3, happy=True, kneeF=-5, kneeB=-5,
+              wa=-80),
+           st(handF=(7, -15), handB=(-3, 5), happy=True, effect="sparkle", sparks=[(16, -36)], wa=-80),
+           st(handF=(8, -13), handB=(-3, 5), happy=True, wa=-75),
+           st(handF=(7, -15), handB=(-3, 5), happy=True, effect="sparkle", sparks=[(12, -38), (22, -30)], wa=-80)]
+    P["win"] = win
+    P.update(weapon_attacks() if wpn else fist_attacks())
+    P["special"] = [st(footF=(8, 12), footB=(-6, 12), handF=(-5, 3), handB=(-6, 4), lean=-2, bob=1, wa=-150),
+                    st(footF=(8, 12), footB=(-6, 12), handF=(8, 4), handB=(6, 5), orb=0 if wpn else 3, wa=0),
+                    st(footF=(9, 12), footB=(-7, 12), handF=(14, 2), handB=(11, 3), lean=3, orb=0 if wpn else 5,
+                       wa=0, big=True),
+                    st(footF=(9, 12), footB=(-6, 12), handF=(15, 1), handB=(13, 2), lean=3, wa=0)]
+    P["upspecial"] = [st(footF=(4, 12), footB=(-3, 13), handF=(5, -17), handB=(-4, 3), lean=2, bob=-2, kneeF=-3,
+                         tail=4, scarf=4, wa=-90),
+                      st(footF=(2, 14), footB=(-3, 13), handF=(6, -18), handB=(-5, 5), lean=2, bob=-3, tail=5, scarf=5,
+                         effect="sparkle", sparks=[(12, -38), (8, -30)], wa=-85),
+                      st(footF=(3, 13), footB=(-4, 12), handF=(4, -16), handB=(-6, 2), lean=1, bob=-3, tail=6, scarf=6,
+                         wa=-95)]
+    P["downspecial"] = [st(handF=(6, -10), handB=(-4, -10), bob=2, wa=-90),
+                        st(handF=(8, 10), handB=(4, 10), bob=6, kneeF=-7, kneeB=-7, footF=(9, 10), footB=(-8, 10),
+                           wa=90),
+                        st(handF=(10, 12), handB=(5, 12), bob=7, kneeF=-7, kneeB=-7, footF=(9, 9), footB=(-8, 9),
+                           wa=95, effect="sparkle", sparks=[(18, 20), (-8, 20)]),
+                        st(handF=(8, 3), handB=(3, 5), bob=2, wa=-20)]
+    P["charge"] = [st(handF=(6, 4), handB=(5, 5), bob=2, orb=3, footF=(9, 12), footB=(-7, 12), kneeF=-4, kneeB=-4,
+                      wa=-150 if wpn else None),
+                   st(handF=(5, 4), handB=(4, 5), bob=3, orb=5, footF=(9, 12), footB=(-7, 12), kneeF=-5, kneeB=-5,
+                      wa=-160 if wpn else None, effect="sparkle", sparks=[(-8, -24), (16, -20)]),
+                   st(handF=(15, 2), handB=(12, 3), lean=4, orb=0 if wpn else 7, footF=(12, 12), footB=(-10, 12),
+                      wa=0, big=True),
+                   st(handF=(16, 1), handB=(14, 2), lean=4, footF=(12, 12), footB=(-10, 12), wa=5)]
+    P["throw"] = [st(handF=(-10, -8), lean=-3, wa=-150), st(handF=(15, -4), lean=3, footF=(9, 12), wa=-10),
+                  st(handF=(10, 4), lean=2, wa=30)]
+    P["ult"] = [st(handF=(8, 8), handB=(-6, 8), bob=4, kneeF=-6, kneeB=-6, footF=(9, 9), footB=(-8, 9), wa=60),
+                st(handF=(10, -14), handB=(-9, -13), bob=-2, wa=-80, effect="sparkle",
+                   sparks=[(20, -32), (-16, -30)]),
+                st(handF=(11, -15), handB=(-10, -14), bob=-3, wa=-80, big=True, effect="sparkle",
+                   sparks=[(22, -36), (-18, -34), (2, -44)]),
+                st(handF=(18, -1), handB=(12, 1), lean=5, orb=0 if wpn else 6, wa=0, big=True,
+                   footF=(13, 12), footB=(-11, 12))]
+    return P
 
 
 def make_character(cid, ch):
     poses = build_poses(ch)
-    sheet = Image.new("RGBA", (FRAME * COLS, FRAME * len(ANIMS)), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (FW * COLS, FH * len(ANIMS)), (0, 0, 0, 0))
     for row, (name, n) in enumerate(ANIMS):
+        frames = poses[name]
+        assert len(frames) >= n, (cid, name, len(frames), n)
         for col in range(n):
-            sheet.paste(draw_character(ch, poses[name][col]), (col * FRAME, row * FRAME))
-    sheet.save(os.path.join(OUT_DIR, f"char_{cid}.png"))
+            sheet.paste(draw_character(ch, frames[col]), (col * FW, row * FH))
+    sheet.save(os.path.join(OUT_DIR, f"char_{cid}.png"), optimize=True)
+    sheet.crop((0, 0, FW * 6, FH)).save(os.path.join(OUT_DIR, f"idle_{cid}.png"))
+    head = sheet.crop((HIP[0] - 30, HIP[1] - 70, HIP[0] + 32, HIP[1] - 8))
+    head.save(os.path.join(OUT_DIR, f"portrait_{cid}.png"))
 
 
-# ---------------------------------------------------------------- proyectiles
+# ---------------------------------------------------------------- proyectiles (32x32, 4 cuadros)
+def circ(d, c, r, col):
+    d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=col)
+
+
 def make_projectile(cid, ch):
     glow = rgba(ch["glow"])
-    sheet = Image.new("RGBA", (16 * 4, 16), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (32 * 4, 32), (0, 0, 0, 0))
     for i in range(4):
-        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
         wob = [0, 1, 0, -1][i]
-        if cid == "azul":  # fragmento de hielo
-            d.polygon([(15, 8), (8, 5 + wob * 0.5), (2, 8), (8, 11 - wob * 0.5)], fill=glow)
-            d.polygon([(14, 8), (8, 6), (8, 8)], fill=WHITE)
-        elif cid == "verde":  # roca
-            pts = []
-            for k in range(8):
-                a = k / 8 * math.tau + i * 0.4
-                r = 6 + ((k * 7 + i) % 3) * 0.7
-                pts.append((8 + math.cos(a) * r, 8 + math.sin(a) * r))
-            d.polygon(pts, fill=(140, 120, 100, 255))
-            circle(d, (6, 6), 1.5, (180, 165, 150, 255))
-            circle(d, (10, 10), 1.2, (100, 86, 72, 255))
-        elif cid == "morado":  # orbe de sombra
-            circle(d, (8, 8), 6 + wob * 0.4, (60, 30, 90, 255))
-            circle(d, (8, 8), 4, glow)
+        if cid == "azul":
+            d.polygon([(30, 16), (16, 10 + wob), (4, 16), (16, 22 - wob)], fill=glow)
+            d.polygon([(28, 16), (16, 12), (16, 16)], fill=WHITE)
+            d.line([(4, 16), (0, 16)], fill=shade(glow, 0.7), width=2)
+        elif cid == "verde":
+            pts = [(16 + math.cos(k / 9 * math.tau + i * 0.5) * (12 + (k * 7 + i) % 3),
+                    16 + math.sin(k / 9 * math.tau + i * 0.5) * (12 + (k * 5 + i) % 3)) for k in range(9)]
+            d.polygon(pts, fill=(140, 122, 104, 255))
+            circ(d, (12, 12), 3, (184, 170, 154, 255))
+            circ(d, (20, 20), 2.5, (100, 86, 72, 255))
+            d.line([(10, 18), (16, 22)], fill=(96, 80, 66, 255), width=1)
+        elif cid == "morado":
+            circ(d, (16, 16), 12 + wob * 0.6, (60, 30, 92, 255))
+            circ(d, (16, 16), 8, glow)
+            circ(d, (16, 16), 4, WHITE)
             a = i * math.pi / 2
-            d.line([(8, 8), (8 + math.cos(a) * 6, 8 + math.sin(a) * 6)], fill=WHITE, width=1)
+            for k in range(3):
+                aa = a + k * math.tau / 3
+                d.line([(16, 16), (16 + math.cos(aa) * 13, 16 + math.sin(aa) * 13)], fill=(230, 200, 255, 255), width=1)
+        elif cid == "kaede":  # onda de corte (media luna)
+            d.pieslice([2, 2, 30, 30], -70, 70, fill=glow)
+            d.pieslice([-4 - wob, 4, 22 - wob, 28], -80, 80, fill=(0, 0, 0, 0))
+            d.arc([2, 2, 30, 30], -70, 70, fill=WHITE, width=2)
+        elif cid == "volta":  # rayo
+            pts = [(2, 16), (10, 11 + wob), (14, 19), (22, 12 - wob), (30, 16)]
+            d.line(pts, fill=glow, width=5)
+            d.line(pts, fill=WHITE, width=2)
+        elif cid == "nova":  # láser
+            d.rounded_rectangle([2, 12, 30, 20], radius=4, fill=shade(glow, 0.8))
+            d.rounded_rectangle([6, 14, 30, 18], radius=2, fill=WHITE)
+        elif cid == "bruma":  # estrella mágica
+            pts = []
+            for k in range(10):
+                r = 13 if k % 2 == 0 else 6
+                a = k / 10 * math.tau + i * 0.3
+                pts.append((16 + math.cos(a) * r, 16 + math.sin(a) * r))
+            d.polygon(pts, fill=glow)
+            circ(d, (16, 16), 4, WHITE)
         else:  # bola de fuego
             for k in range(3):
-                circle(d, (5 - k * 2 - wob, 8), 3 - k, shade(glow, 0.75 - k * 0.15))
-            circle(d, (9, 8), 5 + wob * 0.6, shade(glow, 0.9))
-            circle(d, (9, 8), 3.4, WHITE)
-        sheet.paste(outline(img), (i * 16, 0))
+                circ(d, (10 - k * 4 - wob, 16), 6 - k * 1.5, shade(glow, 0.75 - k * 0.15))
+            circ(d, (18, 16), 10 + wob, shade(glow, 0.9))
+            circ(d, (18, 16), 7, (255, 230, 150, 255))
+            circ(d, (20, 14), 3.5, WHITE)
+        sheet.paste(finish_small(img), (i * 32, 0))
     sheet.save(os.path.join(OUT_DIR, f"proj_{cid}.png"))
+
+
+def finish_small(img):
+    a = np.array(img).astype(np.float32)
+    alpha = a[..., 3] > 0
+    out = a.copy()
+    todo = ~alpha
+    for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+        n_alpha = _shift(alpha, dx, dy)
+        n_rgb = _shift(a[..., :3], dx, dy)
+        m = todo & n_alpha
+        out[m, :3] = n_rgb[m] * 0.3 + 12
+        out[m, 3] = 255
+        todo &= ~m
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
 
 
 # ---------------------------------------------------------------- objetos
 def make_items():
-    # Bate: 40x12, mango a la izquierda (se agarra por x=4, y=6)
-    bat = Image.new("RGBA", (40, 12), (0, 0, 0, 0))
-    d = ImageDraw.Draw(bat)
-    d.polygon([(2, 5), (14, 4), (37, 2), (39, 6), (37, 10), (14, 8), (2, 7)], fill=(214, 170, 110, 255))
-    d.line([(14, 4), (37, 2)], fill=(240, 206, 150, 255), width=1)
-    d.rectangle([1, 4, 8, 8], fill=(60, 40, 110, 255))
-    d.rectangle([0, 4, 1, 8], fill=(90, 70, 140, 255))
-    bat = outline(bat)
-    bat.save(os.path.join(OUT_DIR, "item_bat.png"))
+    def save(img, name):
+        finish_small(img).save(os.path.join(OUT_DIR, name))
 
-    # Arco estilo Minecraft: 3 cuadros de 20x28 (quieto, medio tenso, tenso)
-    bow = Image.new("RGBA", (20 * 3, 28), (0, 0, 0, 0))
+    bat = Image.new("RGBA", (80, 24), (0, 0, 0, 0))  # mango a la izquierda (x=8, y=12)
+    d = ImageDraw.Draw(bat)
+    d.polygon([(4, 10), (28, 8), (74, 4), (78, 12), (74, 20), (28, 16), (4, 14)], fill=(214, 170, 110, 255))
+    d.line([(28, 8), (74, 4)], fill=(244, 212, 160, 255), width=2)
+    d.line([(30, 15), (74, 19)], fill=(170, 124, 76, 255), width=2)
+    d.rectangle([2, 8, 16, 16], fill=(60, 40, 110, 255))
+    for x in range(4, 16, 3):
+        d.line([(x, 8), (x + 2, 16)], fill=(90, 70, 150, 255))
+    d.rectangle([0, 7, 3, 17], fill=(100, 80, 160, 255))
+    save(bat, "item_bat.png")
+
+    bow = Image.new("RGBA", (40 * 3, 56), (0, 0, 0, 0))  # 3 cuadros: normal, medio, tenso
     for i in range(3):
-        img = Image.new("RGBA", (20, 28), (0, 0, 0, 0))
+        img = Image.new("RGBA", (40, 56), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        wood, dark = (150, 100, 50, 255), (100, 64, 30, 255)
-        pts = [(4, 2), (7, 3), (10, 6), (12, 10), (13, 14), (12, 18), (10, 22), (7, 25), (4, 26)]
+        pts = [(8, 4), (14, 6), (20, 12), (24, 20), (26, 28), (24, 36), (20, 44), (14, 50), (8, 52)]
         for a, b in zip(pts, pts[1:]):
-            d.line([a, b], fill=wood, width=3)
-        for p in pts[::2]:
-            d.point([p], fill=dark)
-        pull = [0, 4, 8][i]
-        d.line([(4, 3), (4 - pull, 14), (4, 25)], fill=(230, 230, 230, 255), width=1)
+            d.line([a, b], fill=(150, 100, 50, 255), width=5)
+            d.line([a, b], fill=(190, 136, 76, 255), width=2)
+        d.rectangle([22, 24, 28, 32], fill=(90, 70, 50, 255))
+        pull = [0, 8, 16][i]
+        d.line([(8, 5), (8 - pull, 28), (8, 51)], fill=(235, 235, 235, 255), width=1)
         if i > 0:
-            d.line([(4 - pull, 14), (19, 14)], fill=(170, 130, 80, 255), width=1)
-            d.polygon([(19, 12), (19, 16), (17, 14)], fill=(200, 200, 210, 255))
-        bow.paste(outline(img), (i * 20, 0))
+            d.line([(8 - pull, 28), (38, 28)], fill=(170, 130, 80, 255), width=2)
+            d.polygon([(38, 24), (38, 32), (34, 28)], fill=(200, 200, 215, 255))
+        bow.paste(finish_small(img), (i * 40, 0))
     bow.save(os.path.join(OUT_DIR, "item_bow.png"))
 
-    arrow = Image.new("RGBA", (24, 7), (0, 0, 0, 0))
+    arrow = Image.new("RGBA", (48, 12), (0, 0, 0, 0))
     d = ImageDraw.Draw(arrow)
-    d.line([(3, 3), (19, 3)], fill=(170, 130, 80, 255), width=1)
-    d.polygon([(23, 3), (19, 0), (19, 6)], fill=(200, 200, 215, 255))
-    d.polygon([(0, 0), (5, 3), (0, 6), (3, 3)], fill=(240, 240, 240, 255))
-    outline(arrow).save(os.path.join(OUT_DIR, "item_arrow.png"))
+    d.line([(6, 6), (38, 6)], fill=(170, 130, 80, 255), width=2)
+    d.polygon([(46, 6), (38, 1), (38, 11)], fill=(200, 200, 215, 255))
+    d.polygon([(0, 1), (10, 6), (0, 11), (5, 6)], fill=(240, 240, 240, 255))
+    save(arrow, "item_arrow.png")
 
-
-# ---------------------------------------------------------------- escenarios
-def noise_tile(base, size=32, seed=1, amount=14, dots=None):
-    rnd = random.Random(seed)
-    img = Image.new("RGBA", (size, size), base)
-    px = img.load()
-    for y in range(size):
-        for x in range(size):
-            v = rnd.randint(-amount, amount)
-            px[x, y] = tuple(max(0, min(255, base[i] + v)) for i in range(3)) + (255,)
-    if dots:
+    bomb = Image.new("RGBA", (40 * 2, 40), (0, 0, 0, 0))  # 2 cuadros (chispa de la mecha)
+    for i in range(2):
+        img = Image.new("RGBA", (40, 40), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        for _ in range(dots[1]):
-            x, y = rnd.randint(1, size - 3), rnd.randint(1, size - 3)
-            d.rectangle([x, y, x + 2, y + 1], fill=dots[0])
-    return img
+        circ(d, (19, 23), 14, (40, 44, 60, 255))
+        circ(d, (14, 18), 4, (110, 120, 150, 255))
+        d.rectangle([16, 6, 23, 11], fill=(90, 96, 120, 255))
+        d.line([(20, 6), (24, 1)], fill=(200, 170, 120, 255), width=2)
+        circ(d, (25, 1 + i), 3 + i, (255, 200, 60, 255))
+        bomb.paste(finish_small(img), (i * 40, 0))
+    bomb.save(os.path.join(OUT_DIR, "item_bomb.png"))
 
+    sword = Image.new("RGBA", (80, 24), (0, 0, 0, 0))  # espada de energía; mango a la izquierda
+    d = ImageDraw.Draw(sword)
+    d.rounded_rectangle([20, 6, 78, 18], radius=6, fill=(120, 255, 180, 200))
+    d.rounded_rectangle([22, 9, 76, 15], radius=3, fill=(230, 255, 240, 255))
+    d.rectangle([2, 8, 18, 16], fill=(80, 84, 100, 255))
+    d.rectangle([16, 4, 20, 20], fill=(200, 200, 215, 255))
+    save(sword, "item_sword.png")
 
-def save(img, name):
-    img.save(os.path.join(OUT_DIR, name))
+    heart = Image.new("RGBA", (36, 32), (0, 0, 0, 0))
+    d = ImageDraw.Draw(heart)
+    circ(d, (11, 11), 9, (236, 60, 90, 255))
+    circ(d, (25, 11), 9, (236, 60, 90, 255))
+    d.polygon([(3, 14), (33, 14), (18, 30)], fill=(236, 60, 90, 255))
+    circ(d, (9, 8), 3, (255, 170, 190, 255))
+    save(heart, "item_heart.png")
 
+    star = Image.new("RGBA", (36, 36), (0, 0, 0, 0))
+    d = ImageDraw.Draw(star)
+    pts = []
+    for k in range(10):
+        r = 16 if k % 2 == 0 else 7
+        a = k / 10 * math.tau - math.pi / 2
+        pts.append((18 + math.cos(a) * r, 18 + math.sin(a) * r))
+    d.polygon(pts, fill=(255, 220, 60, 255))
+    d.rectangle([14, 14, 15, 19], fill=(60, 40, 20, 255))
+    d.rectangle([20, 14, 21, 19], fill=(60, 40, 20, 255))
+    save(star, "item_star.png")
 
-def make_tiles():
-    # --- Pradera
-    dirt = noise_tile((120, 82, 56, 255), seed=3, amount=8, dots=((92, 60, 42, 255), 14))
-    save(dirt, "tile_dirt.png")
-    grass = dirt.copy()
-    d = ImageDraw.Draw(grass)
-    d.rectangle([0, 0, 31, 9], fill=(92, 176, 70, 255))
-    rnd = random.Random(5)
-    for x in range(0, 32, 2):
-        d.rectangle([x, 8, x + 1, rnd.randint(9, 13)], fill=(92, 176, 70, 255))
-    d.rectangle([0, 0, 31, 3], fill=(130, 214, 96, 255))
-    d.rectangle([0, 9, 31, 9], fill=(60, 130, 52, 255))
-    for x in range(1, 32, 7):
-        d.rectangle([x, 5, x, 6], fill=(70, 150, 58, 255))
-    save(grass, "tile_grass.png")
-    plat = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
-    d = ImageDraw.Draw(plat)
-    d.rectangle([0, 0, 31, 15], fill=(176, 130, 84, 255))
-    d.rectangle([0, 0, 31, 3], fill=(214, 168, 112, 255))
-    d.rectangle([0, 13, 31, 15], fill=(120, 84, 56, 255))
-    d.line([(15, 4), (15, 12)], fill=(120, 84, 56, 255), width=1)
-    d.line([(0, 4), (31, 4)], fill=(140, 100, 64, 255), width=1)
-    save(plat, "tile_platform.png")
-
-    # --- Cosmos (metal y luces)
-    metal = noise_tile((52, 58, 84, 255), seed=8, amount=5)
-    d = ImageDraw.Draw(metal)
-    d.rectangle([0, 0, 31, 0], fill=(70, 78, 110, 255))
-    d.rectangle([0, 31, 31, 31], fill=(36, 40, 60, 255))
-    for p in [(3, 3), (28, 3), (3, 28), (28, 28)]:
-        d.point([p], fill=(120, 130, 170, 255))
-    save(metal, "tile_metal.png")
-    mtop = metal.copy()
-    d = ImageDraw.Draw(mtop)
-    d.rectangle([0, 0, 31, 7], fill=(150, 160, 200, 255))
-    d.rectangle([0, 0, 31, 1], fill=(210, 220, 255, 255))
-    d.rectangle([0, 8, 31, 9], fill=(90, 240, 255, 255))
-    d.rectangle([0, 10, 31, 10], fill=(40, 120, 150, 255))
-    save(mtop, "tile_metal_top.png")
-    mplat = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
-    d = ImageDraw.Draw(mplat)
-    d.rectangle([0, 0, 31, 15], fill=(70, 78, 120, 255))
-    d.rectangle([0, 0, 31, 2], fill=(190, 200, 240, 255))
-    d.rectangle([0, 11, 31, 12], fill=(90, 240, 255, 255))
-    d.rectangle([0, 13, 31, 15], fill=(40, 44, 70, 255))
-    save(mplat, "tile_platform_metal.png")
-
-    # --- Ciudad (azotea)
-    brick = Image.new("RGBA", (32, 32), (150, 70, 60, 255))
-    d = ImageDraw.Draw(brick)
-    rnd = random.Random(21)
-    for row in range(4):
-        y = row * 8
-        off = 0 if row % 2 == 0 else 8
-        for x in range(-8, 32, 16):
-            c = (150 + rnd.randint(-15, 15), 70 + rnd.randint(-10, 10), 60, 255)
-            d.rectangle([x + off, y, x + off + 14, y + 6], fill=c)
-    save(brick, "tile_brick.png")
-    roof = brick.copy()
-    d = ImageDraw.Draw(roof)
-    d.rectangle([0, 0, 31, 9], fill=(150, 150, 160, 255))
-    d.rectangle([0, 0, 31, 2], fill=(200, 200, 210, 255))
-    d.rectangle([0, 9, 31, 11], fill=(90, 90, 100, 255))
-    for x in range(0, 32, 8):
-        d.point([(x + 3, 5)], fill=(120, 120, 130, 255))
-    save(roof, "tile_roof.png")
-    girder = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
-    d = ImageDraw.Draw(girder)
-    d.rectangle([0, 0, 31, 3], fill=(230, 170, 40, 255))
-    d.rectangle([0, 12, 31, 15], fill=(190, 130, 30, 255))
-    d.line([(0, 4), (8, 11), (16, 4), (24, 11), (31, 4)], fill=(210, 150, 35, 255), width=2)
-    d.rectangle([0, 0, 31, 0], fill=(255, 210, 100, 255))
-    save(girder, "tile_platform_city.png")
-
-
-def gradient(w, h, top, bot):
-    img = Image.new("RGBA", (w, h))
-    px = img.load()
-    for y in range(h):
-        t = y / h
-        c = tuple(int(top[i] + (bot[i] - top[i]) * t) for i in range(3)) + (255,)
-        for x in range(w):
-            px[x, y] = c
-    return img
-
-
-def ridge(d, w, h, base_y, amp, col, seed, step=(40, 80)):
-    r = random.Random(seed)
-    pts = [(0, h)]
-    x = 0
-    while x <= w + 40:
-        pts.append((x, base_y - r.randint(0, amp)))
-        x += r.randint(*step)
-    pts.append((w, h))
-    d.polygon(pts, fill=col)
-
-
-def make_backgrounds():
-    w, h = 640, 360
-    # Pradera
-    img = gradient(w, h, (92, 160, 240), (200, 232, 250))
-    d = ImageDraw.Draw(img)
-    circle(d, (500, 70), 30, (255, 244, 180, 255))
-    circle(d, (500, 70), 22, (255, 252, 220, 255))
-    rnd = random.Random(7)
-    for _ in range(9):
-        cx, cy = rnd.randint(20, 620), rnd.randint(30, 170)
-        for k in range(4):
-            circle(d, (cx + k * 14, cy + rnd.randint(-4, 4)), rnd.randint(10, 16), WHITE)
-        d.rectangle([cx - 10, cy + 6, cx + 4 * 14, cy + 12], fill=WHITE)
-    ridge(d, w, h, 250, 70, (140, 170, 210, 255), 11)
-    ridge(d, w, h, 290, 50, (104, 150, 180, 255), 12)
-    ridge(d, w, h, 330, 30, (80, 136, 120, 255), 13)
-    save(img, "bg_pradera.png")
-
-    # Cosmos
-    img = gradient(w, h, (12, 8, 36), (40, 20, 70))
-    d = ImageDraw.Draw(img)
-    rnd = random.Random(31)
-    for _ in range(18):  # nebulosa
-        cx, cy = rnd.randint(0, w), rnd.randint(40, 260)
-        col = rnd.choice([(90, 40, 140), (40, 60, 150), (140, 40, 110)])
-        for k in range(6):
-            r = rnd.randint(18, 40)
-            circle(d, (cx + rnd.randint(-40, 40), cy + rnd.randint(-20, 20)), r,
-                   tuple(int(c * 0.55) + 12 for c in col) + (255,))
-    for _ in range(260):
-        x, y = rnd.randint(0, w - 1), rnd.randint(0, h - 1)
-        b = rnd.randint(150, 255)
-        d.point([(x, y)], fill=(b, b, 255, 255))
-        if rnd.random() < 0.06:
-            d.line([(x - 2, y), (x + 2, y)], fill=(b, b, 255, 255))
-            d.line([(x, y - 2), (x, y + 2)], fill=(b, b, 255, 255))
-    circle(d, (120, 90), 42, (230, 140, 90, 255))
-    d.ellipse([78, 48, 162, 132], outline=(255, 190, 140, 255), width=2)
-    d.pieslice([78, 48, 162, 132], 90, 270, fill=(200, 110, 70, 255))
-    d.ellipse([60, 80, 180, 100], outline=(240, 220, 200, 255), width=2)
-    circle(d, (520, 300), 110, (60, 50, 110, 255))
-    circle(d, (520, 300), 100, (80, 64, 140, 255))
-    save(img, "bg_cosmos.png")
-
-    # Ciudad al atardecer
-    img = gradient(w, h, (60, 40, 110), (250, 150, 110))
-    d = ImageDraw.Draw(img)
-    circle(d, (320, 250), 60, (255, 200, 120, 255))
-    circle(d, (320, 250), 48, (255, 225, 160, 255))
-    rnd = random.Random(44)
-    for layer, (col, base, hmin, hmax) in enumerate([((110, 70, 130), 300, 60, 150),
-                                                     ((60, 40, 80), 330, 50, 120)]):
-        x = -10
-        while x < w:
-            bw = rnd.randint(30, 70)
-            bh = rnd.randint(hmin, hmax)
-            d.rectangle([x, base - bh, x + bw, h], fill=col + (255,))
-            if layer == 1:
-                for wy in range(base - bh + 8, h - 10, 10):
-                    for wx in range(x + 5, x + bw - 5, 9):
-                        if rnd.random() < 0.35:
-                            d.rectangle([wx, wy, wx + 3, wy + 4], fill=(255, 220, 130, 255))
-            x += bw + rnd.randint(2, 10)
-    save(img, "bg_ciudad.png")
+    boom = Image.new("RGBA", (36, 36), (0, 0, 0, 0))
+    d = ImageDraw.Draw(boom)
+    d.polygon([(4, 30), (6, 8), (30, 4), (30, 11), (13, 13), (11, 31)], fill=(214, 150, 70, 255))
+    d.line([(8, 28), (8, 9), (28, 6)], fill=(250, 200, 120, 255), width=2)
+    d.polygon([(6, 8), (10, 8), (10, 12), (6, 12)], fill=(200, 60, 60, 255))
+    save(boom, "item_boomerang.png")
 
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
+    only = os.environ.get("ONLY")
     for cid, ch in CHARACTERS.items():
+        if only and cid != only:
+            continue
         make_character(cid, ch)
         make_projectile(cid, ch)
+        print("personaje", cid)
     make_items()
-    make_tiles()
-    make_backgrounds()
     print("Sprites generados en", os.path.abspath(OUT_DIR))
 
 

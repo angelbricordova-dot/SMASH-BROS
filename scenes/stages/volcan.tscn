@@ -1,0 +1,70 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/stage.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/platform.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/game_camera.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/stage_background.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/moving_platform.gd" id="7"]
+
+[node name="Volcan" type="Node2D"]
+script = ExtResource("1")
+stage_id = "volcan"
+blast_zone = Rect2(-1100, -900, 2200, 1800)
+
+[node name="Background" type="CanvasLayer" parent="."]
+script = ExtResource("4")
+stage_id = "volcan"
+ambience = "embers"
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="MainGround" type="StaticBody2D" parent="Platforms"]
+position = Vector2(-420, 200)
+script = ExtResource("2")
+size = Vector2(840, 170)
+one_way = false
+ground = true
+style = 3
+
+[node name="RiserLeft" type="AnimatableBody2D" parent="Platforms"]
+position = Vector2(-330, 40)
+script = ExtResource("7")
+size = Vector2(190, 24)
+travel = Vector2(0, -70)
+period = 5.0
+style = 3
+
+[node name="RiserRight" type="AnimatableBody2D" parent="Platforms"]
+position = Vector2(140, 40)
+script = ExtResource("7")
+size = Vector2(190, 24)
+travel = Vector2(0, 70)
+period = 5.0
+style = 3
+
+[node name="Spawn1" type="Marker2D" parent="."]
+position = Vector2(-220, 199)
+
+[node name="Spawn2" type="Marker2D" parent="."]
+position = Vector2(220, 199)
+
+[node name="Spawn3" type="Marker2D" parent="."]
+position = Vector2(-120, 199)
+
+[node name="Spawn4" type="Marker2D" parent="."]
+position = Vector2(120, 199)
+
+[node name="RespawnPoint" type="Marker2D" parent="."]
+position = Vector2(0, -230)
+
+[node name="GameCamera" type="Camera2D" parent="."]
+position = Vector2(0, 40)
+script = ExtResource("3")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("5")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("6")

@@ -46,20 +46,25 @@ static func panel(bg := CARD, radius := 16, border := Color(0, 0, 0, 0), border_
 	return p
 
 
-## Un cuadro de la hoja de sprites de un personaje.
-static func frame_tex(char_id: String, row: int, col: int) -> AtlasTexture:
+## Un cuadro de la animación "idle" de un personaje (para menús).
+static func frame_tex(char_id: String, col := 0) -> AtlasTexture:
 	var at := AtlasTexture.new()
-	at.atlas = load(CharacterData.get_data(char_id)["sheet"])
-	at.region = Rect2(col * Fighter.FRAME, row * Fighter.FRAME, Fighter.FRAME, Fighter.FRAME)
+	at.atlas = load("res://assets/sprites/idle_%s.png" % char_id)
+	at.region = Rect2(col * Fighter.FRAME_W, 0, Fighter.FRAME_W, Fighter.FRAME_H)
+	return at
+
+
+## Un cuadro cualquiera de la hoja completa (fila = animación).
+static func sheet_tex(char_id: String, row: int, col: int) -> AtlasTexture:
+	var at := AtlasTexture.new()
+	at.atlas = load("res://assets/sprites/char_%s.png" % char_id)
+	at.region = Rect2(col * Fighter.FRAME_W, row * Fighter.FRAME_H, Fighter.FRAME_W, Fighter.FRAME_H)
 	return at
 
 
 ## Retrato (la cabeza) de un personaje.
-static func head_tex(char_id: String) -> AtlasTexture:
-	var at := AtlasTexture.new()
-	at.atlas = load(CharacterData.get_data(char_id)["sheet"])
-	at.region = Rect2(18, 8, 38, 38)
-	return at
+static func head_tex(char_id: String) -> Texture2D:
+	return load("res://assets/sprites/portrait_%s.png" % char_id)
 
 
 static func pixel_rect(tex: Texture2D, min_size: Vector2) -> TextureRect:

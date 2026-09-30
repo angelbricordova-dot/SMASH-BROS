@@ -32,10 +32,10 @@ func _ready() -> void:
 	glow.position = Vector2(300, 330)
 	_root.add_child(glow)
 	if winner:
-		_win_tex = UI.frame_tex(winner.char_id, 10, 0)
-		var pic := UI.pixel_rect(_win_tex, Vector2(384, 384))
-		pic.position = Vector2(108, 110)
-		pic.size = Vector2(384, 384)
+		_win_tex = UI.sheet_tex(winner.char_id, 11, 0)
+		var pic := UI.pixel_rect(_win_tex, Vector2(480, 432))
+		pic.position = Vector2(80, 80)
+		pic.size = Vector2(480, 432)
 		_root.add_child(pic)
 	var who := ""
 	if winner:
@@ -81,7 +81,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	if _win_tex:
-		_win_tex.region.position.x = (int(_t * 7.0) % 6) * Fighter.FRAME
+		_win_tex.region.position.x = (int(_t * 8.0) % 8) * Fighter.FRAME_W
 
 
 class GlowCircle extends Node2D:

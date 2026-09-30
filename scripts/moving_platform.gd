@@ -7,7 +7,7 @@ extends AnimatableBody2D
 @export var size := Vector2(180, 20)
 @export var travel := Vector2(260, 0)
 @export var period := 6.0
-@export_enum("Pradera", "Cosmico", "Ciudad") var style := 2
+@export_enum("Pradera", "Cosmico", "Ciudad", "Volcan", "Bosque", "Nieve") var style := 2
 
 var _origin := Vector2.ZERO
 var _t := 0.0
@@ -15,6 +15,7 @@ var _t := 0.0
 
 func _ready() -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_origin = position
 	var shape := CollisionShape2D.new()
 	var r := RectangleShape2D.new()

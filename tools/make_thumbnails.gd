@@ -6,7 +6,7 @@ extends Node
 func _ready() -> void:
 	Game.preview_mode = true
 	for s in Game.STAGES:
-		var stage: Node = load(s["scene"]).instantiate()
+		var stage: Node = load(Game.stage_scene(s["id"])).instantiate()
 		add_child(stage)
 		for i in 20:
 			await get_tree().process_frame

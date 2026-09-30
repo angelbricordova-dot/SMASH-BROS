@@ -12,6 +12,7 @@ habilidades raras), me lo pides y lo hacemos juntos.
 2. Botón verde **Code** → **Download ZIP**.
 3. Descomprime el ZIP en una carpeta que encuentres fácil (por ejemplo `Documentos/super-brawl`).
    Dentro debe verse el archivo **`project.godot`**. Esa es la carpeta del juego.
+   Si ya tenías una versión anterior, **reemplaza la carpeta completa** por la nueva.
 
 ## 2. Abrir el proyecto en Godot
 
@@ -19,9 +20,17 @@ habilidades raras), me lo pides y lo hacemos juntos.
 
 1. Abre Godot. Te aparece el **Administrador de proyectos** (Project Manager).
 2. Clic en **Importar** (Import) → **Examinar** → elige el archivo `project.godot` → **Abrir** → **Importar y editar**.
-3. La primera vez tarda unos segundos: Godot "importa" los dibujos y sonidos. Es normal.
-   Si te sale un aviso sobre la versión del proyecto, acepta (es solo una conversión automática).
-4. Para **jugar**: presiona **F5** (o el botón ▶ arriba a la derecha). Se abre el menú del juego.
+3. La primera vez tarda unos segundos: Godot "importa" los dibujos, sonidos y música. Es normal.
+4. Para **jugar**: presiona **F5** (o el botón ▶ arriba a la derecha).
+
+> **Pantalla completa (F11):** en Godot 4.4 o más nuevo, el juego se abre *dentro* del editor (pestaña **Game**) y ahí
+> la pantalla completa no funciona. Para jugar en su propia ventana: en la pestaña **Game** desactiva
+> **"Embed Game on Next Play"** (o en *Editor → Configuración del editor → Run → Window Placement*) y vuelve a presionar F5.
+> También puedes activarla desde **Ajustes** en el menú del juego.
+
+---
+
+## 3. Cómo se juega
 
 ### Controles
 
@@ -29,248 +38,224 @@ habilidades raras), me lo pides y lo hacemos juntos.
 |---|---|---|---|
 | Caminar | `A` `D` | `←` `→` | Stick / cruceta |
 | **Correr** (doble toque) | `A A` / `D D` | `← ←` / `→ →` | doble toque |
-| Saltar · **doble salto** (otra vez en el aire) | `Espacio` | `Enter` o `Num 0` | `A` |
-| **Agacharse** (mantener) | `S` | `↓` | abajo |
-| Atacar (+ arriba/abajo = otro ataque) | `F` | `,` o `Num 1` | `X` |
-| Ataque corriendo | `F` mientras corres | `,` mientras corres | `X` |
-| Especial | `G` | `.` o `Num 2` | `B` |
-| **Recuperación** (arriba + especial) | `W` + `G` | `↑` + `.` | arriba + `B` |
-| Escudo (mantener) | `Q` | `-` o `Num 3` | `LB` / `RB` / gatillos |
-| Lanzar objeto | `Q` + `F` | `-` + `,` | escudo + `X` |
-| **Ulti** (con la barra llena) | `E` | `L` o `Num 4` | `Y` |
-| **Provocar** (emote) | `R` | `K` o `Num 5` | `Back` / `Select` |
-| Caída rápida (en el aire) | `S` | `↓` | abajo |
-| Atravesar plataforma | tocar `S` | tocar `↓` | abajo |
+| Saltar · **doble salto** | `Espacio` | `Enter` / `Num 0` | `A` |
+| **Agacharse** (mantener) / caer rápido | `S` | `↓` | abajo |
+| **Ataque** (tócalo varias veces = **combo**) | `F` | `,` / `Num 1` | `X` |
+| Ataque + dirección (lado / arriba / abajo) | `A/D/W/S` + `F` | flechas + `,` | stick + `X` |
+| **Smash cargado** (mantener) | mantener `F` | mantener `,` | mantener `X` |
+| **Especial** | `G` | `.` / `Num 2` | `B` |
+| Especial + arriba / + abajo / mantener | `W`+`G` · `S`+`G` · mantener `G` | `↑`+`.` · `↓`+`.` · mantener `.` | stick + `B` |
+| Escudo | `Q` | `-` / `Num 3` | `LB` / gatillos |
+| Rodar · esquivar en el sitio | `Q` + `A`/`D` · `Q` + `S` | `-` + `←`/`→` · `-` + `↓` | escudo + stick |
+| Esquiva en el aire | `Q` en el aire | `-` en el aire | escudo en el aire |
+| **Lanzar objeto** (+ arriba/abajo) | `C` | `J` / `Num 6` | `RB` |
+| **Ulti** (barra llena) | `E` | `L` / `Num 4` | `Y` |
+| Provocar (emote) | `R` | `K` / `Num 5` | `Select` |
 | Pausa | `Esc` | `Esc` | `Start` |
 
-- El control 1 (gamepad) maneja al Jugador 1 y el control 2 al Jugador 2.
-- `F11` = pantalla completa.
+En el menú del juego hay una pantalla de **CONTROLES** con todo esto.
 
-### El menú
-1. **Título** → `Enter`.
-2. **Elige tu luchador**: izquierda/derecha para elegir (el `?` es **aleatorio**), **ATAQUE** = ¡listo!,
-   **ESPECIAL** = cambiar entre Humano y CPU, **arriba/abajo** = dificultad del CPU (Fácil / Normal / Difícil).
-   `Enter` para continuar.
-3. **Elige el escenario**: Pradera, Destino Cósmico, Azotea o **aleatorio**. Arriba/abajo cambia las vidas,
-   ESPECIAL activa/desactiva los objetos. `Enter` = ¡a pelear!
+### Los ataques (cada personaje tiene su propio set)
 
-### Las mecánicas (cómo se juega)
-- **Daño en %**: cada golpe suma % al rival. Con más %, sale volando más lejos. Si sale de la pantalla, pierde una vida.
-  Los pesados (GRUNK) aguantan más; los ligeros (KORI) salen volando antes.
-- **Correr**: toca dos veces rápido la dirección. Si atacas mientras corres haces un **ataque corriendo**.
-- **Doble salto**: salta otra vez en el aire (da una voltereta). Si sueltas el salto rápido haces un **salto corto**.
-- **Recuperación**: si te sacan del escenario, usa el doble salto y luego **arriba + especial**. Cada personaje tiene
-  una distinta. Después de usarla caes **indefenso** (oscurecido) hasta tocar el suelo o agarrarte de un borde.
-- **Bordes**: si caes cerca de la orilla del escenario te **cuelgas** automáticamente. Desde ahí: salto = saltar,
-  arriba/hacia el escenario = subir, abajo/hacia afuera = soltarte.
-- **Agacharse**: mantén abajo. Tu cuerpo se hace más pequeño y sales volando un poco menos.
-- **Escudo**: bloquea el daño, pero **se agrieta** con cada golpe y se va encogiendo. Si se rompe, quedas mareado.
-- **PARRY** (como en Street Fighter III): justo cuando te van a pegar, **toca la dirección HACIA el atacante**.
-  Ejemplo: si el rival te ataca desde la derecha (su golpe va de derecha a izquierda), toca **derecha** en el
-  momento exacto. Si lo logras: no recibes daño, el rival queda congelado un momento (¡contraataca!) y se llena
-  **1/3 de tu barra de ulti**. Si aprietas izquierda-derecha como loco no funciona: tiene que ser a tiempo.
-- **Barra de ulti**: se llena sobre todo con parries (3 parries = barra llena) y un poquito al golpear. Cuando
-  está llena, tu tarjeta brilla y dice ¡ULTI!: presiona la tecla de ulti.
-- **Influir tu salida (DI)**: mientras sales volando, mantener una dirección cambia un poco el ángulo. Úsalo para sobrevivir.
-- **Buffer**: si presionas saltar/atacar un poquito antes de poder moverte (por ejemplo, al final de un golpe
-  recibido), la acción sale en cuanto se puede. Además, cuando te golpean recuperas tu doble salto y tu recuperación.
-- **Objetos** (caen del cielo): acércate y presiona **ATAQUE** para recogerlo.
-  - **Bate**: tu ataque se vuelve un batazo que manda a volar lejísimos (¡home run!).
-  - **Arco** (estilo Minecraft) con **3 flechas**: mantén ATAQUE para tensar (caminas lento) y suelta para disparar.
-    Más tensado = flecha más rápida y fuerte.
-  - **Escudo + ATAQUE** lanza el objeto que tengas.
+- **Combo**: toca ataque varias veces → golpe 1, golpe 2 y remate (cada personaje los hace distinto: KORI remata
+  con una ráfaga de patadas, KAEDE con cortes de katana, etc.).
+- **Ataque + dirección** en el suelo: lado = golpe fuerte hacia delante, arriba = golpe hacia arriba, abajo = barrida.
+- **Corriendo + ataque** = ataque en carrera.
+- **Mantén el ataque** = **smash cargado**: mientras más lo cargues, más daño y más lejos manda al rival.
+- **En el aire**: ataque solo, hacia delante, **hacia atrás**, arriba o abajo (¡el de abajo puede mandar al rival hacia abajo!).
+- **Especiales** (G): tocar G, **arriba + G** (recuperación para volver al escenario), **abajo + G** y
+  **mantener G** (versión cargada). Mira la tabla de luchadores más abajo.
+
+### Las mecánicas
+
+- **Daño en %**: cada golpe suma % al rival. Con más %, sale volando más lejos. Si sale de la pantalla pierde una vida.
+- **Recuperación**: fuera del escenario usa el doble salto y luego **arriba + especial**. Después caes **indefenso**
+  (oscurecido) hasta tocar suelo o agarrarte de un borde.
+- **Bordes**: al caer cerca de la orilla te **cuelgas**. Salto = saltar, arriba = subir, abajo = soltarte.
+- **Escudo**: bloquea, pero **se agrieta** y se rompe. Escudo + dirección = **rodar**; escudo + abajo = **esquivar**.
+  En el aire: **esquiva aérea** en cualquier dirección.
+- **PARRY** (como Street Fighter III): justo cuando te van a pegar, **toca la dirección HACIA el atacante**.
+  Si lo logras: no recibes daño, el rival queda congelado un instante y ganas un poco de **barra de ulti**.
+- **Barra de ulti**: se llena con parries (unos 8 parries = barra llena) y al hacer daño. Llena → tecla de ulti.
+  Las ultis no se pueden interrumpir.
+- **Buffer y DI**: si presionas algo un poquito antes de poder moverte, sale en cuanto se puede. Mientras sales
+  volando, mantener una dirección cambia un poco el ángulo (úsalo para sobrevivir).
 
 ### Los luchadores
 
-| | Especial | Arriba + Especial (recuperación) | Ulti |
-|---|---|---|---|
-| **RYU-KO** (equilibrado) | Bola de fuego | Puño del Dragón: gancho que sube y golpea | Rayo Dragón: rayo gigante que cruza la pantalla |
-| **KORI** (rápida, ligera) | 3 shurikens de hielo | Ráfaga: se lanza en cualquiera de 8 direcciones | Ventisca Eterna: congela a todos, los daña y los hace estallar |
-| **GRUNK** (lento, pesado) | Roca en arco | Supersalto con cabezazo | Terremoto: golpe al suelo que lanza a todos los que estén en el piso (¡salta para esquivarlo!) |
-| **UMBRA** (sombras) | Paranoia: orbe que atraviesa a todos | Paso sombrío: se desvanece y reaparece donde apuntes (como Omen) | Desde las Sombras: desaparece y aparece a la espalda del rival para golpearlo |
+| | G | Arriba + G | Abajo + G | Mantener G | Ulti |
+|---|---|---|---|---|---|
+| **RYU-KO** (equilibrado, fuego) | Bola de fuego | Puño del Dragón | Pisotón llameante | Gran bola de fuego | Rayo Dragón |
+| **KORI** (rápida, hielo) | Shurikens | Ráfaga (8 direcciones) | Patada en picada | Tormenta de shurikens | Ventisca Eterna (congela) |
+| **GRUNK** (pesado, garrote) | Roca | Supersalto | Golpe sísmico | Carga de toro (armadura) | Terremoto |
+| **UMBRA** (sombras, como Omen) | Paranoia | Paso sombrío (teletransporte) | Trampa de sombra | Paranoia doble | Desde las Sombras (6 cortes + remate) |
+| **KAEDE** (samurái, katana) | Corte al viento | Iai ascendente | **Contraataque** | Estocada | Mil Cortes |
+| **VOLTA** (eléctrico, veloz) | Chispa | Relámpago (zigzag) | Trueno | Sobrecarga | Tormenta Eléctrica |
+| **NOVA** (robot, distancia) | Blaster | Jetpack | Mina | Cañón de plasma | Láser Orbital |
+| **BRUMA** (bruja, magia) | Estrella que persigue | Escoba voladora | Círculo de runas | Meteorito | Lluvia de Meteoros |
 
-## 3. Un mini-tour por Godot (solo lo necesario)
+### Objetos (caen del cielo)
 
-Cuando abres el proyecto ves esto:
+Acércate y presiona **ATAQUE** para recogerlos. **LANZAR** (`C` / `J`) los tira: ¡le hacen daño al rival! Luego quedan
+en el suelo y se pueden volver a recoger.
 
-```
-┌────────────┬──────────────────────────┬────────────┐
-│ Escena     │                          │ Inspector  │
-│ (Scene)    │      Vista principal     │ (propie-   │
-│            │  (aquí ves el escenario) │  dades)    │
-├────────────┤                          │            │
-│ Sistema de │                          │            │
-│ archivos   │                          │            │
-│(FileSystem)│                          │            │
-└────────────┴──────────────────────────┴────────────┘
-```
+| Objeto | Qué hace |
+|---|---|
+| **Bate** | Batazo fuerte. **Mantén ATAQUE para cargar** un home run. |
+| **Arco** (Minecraft) | 3 flechas. Mantén ATAQUE para tensar (caminas lento), suelta para disparar. |
+| **Espada de energía** | Combo de 2 cortes de gran alcance. Se rompe tras 12 golpes. |
+| **Bomba** | ATAQUE o LANZAR: explota al tocar algo. |
+| **Bumerán** | Va, golpea y vuelve a tu mano. |
+| **Corazón** | Te cura 40% al recogerlo. |
+| **Estrella** | Invencible y más rápido 8 segundos. |
 
-- **Sistema de archivos (FileSystem)**, abajo a la izquierda: todas las carpetas del proyecto. **Doble clic** abre el archivo.
-- Arriba al centro hay 4 pestañas: **2D** (ver/mover cosas), **Script** (código), **Game**, **AssetLib**.
-- **Escena (Scene)**: la lista de "cosas" (nodos) que forman lo que tienes abierto.
-- **Inspector**: cuando seleccionas un nodo, aquí cambias sus propiedades (tamaño, posición, etc.).
-- Botón ▶ (F5) = jugar todo. **F6** = jugar solo la escena que tienes abierta.
-- **Ctrl+S** = guardar. Guarda seguido.
+### Modos de juego
+
+- **Clásico**: a vidas; el último en pie gana.
+- **Caos de Cartas** (estilo ARAM Chaos): al empezar cada jugador elige **1 de 3 cartas** de mejora
+  (doble daño, triple salto, ulti instantánea, vampiro, gigante…). Cada vez que sacas a un rival (**KO**) ganas un punto
+  y eliges **otra carta**. El juego se pausa mientras eliges para que leas con calma. El CPU elige solo.
+
+### Menú
+**Título → Menú principal** (Clásico / Caos de Cartas / Controles / Ajustes) **→ Luchadores → Escenario**.
+En luchadores: izquierda/derecha elige (el `?` es aleatorio), **ATAQUE** = listo, **ESPECIAL** = Humano/CPU,
+arriba/abajo = dificultad del CPU (Fácil / Normal / Difícil). En escenario: elige mapa (o aleatorio), **escudo** cambia
+las vidas y **especial** los objetos. En **Ajustes** subes o bajas el volumen de la música y de los efectos
+(se guarda) y activas la pantalla completa.
+
+---
+
+## 4. Un mini-tour por Godot (solo lo necesario)
+
+- **Sistema de archivos (FileSystem)**, abajo a la izquierda: todas las carpetas. **Doble clic** abre el archivo.
+- Arriba al centro: **2D** (ver/mover cosas), **Script** (código).
+- **Escena (Scene)**: la lista de "cosas" (nodos) de lo que tienes abierto. **Inspector**: sus propiedades.
+- **F5** = jugar todo. **F6** = jugar solo la escena abierta. **Ctrl+S** = guardar.
 
 ### Las carpetas del proyecto
 
 | Carpeta / archivo | Qué hay |
 |---|---|
-| `scenes/menu.tscn` | Título, elección de luchadores y de escenario |
-| `scenes/stages/` | Los 3 mapas: `pradera.tscn`, `cosmos.tscn`, `ciudad.tscn` |
-| `scripts/character_data.gd` | **Aquí están los números de cada personaje** (velocidad, salto, daño, peso…) |
+| `scenes/menu.tscn` | Todo el menú |
+| `scenes/stages/` | Los 6 mapas: `pradera`, `cosmos`, `ciudad`, `volcan`, `bosque`, `nieve` |
+| `scripts/character_data.gd` | **Los números de cada personaje** y sus golpes normales |
 | `scripts/characters/` | **Las habilidades únicas** de cada personaje (un archivo por personaje) |
-| `scripts/game.gd` | Controles (teclas), lista de mapas, sonidos y configuración general |
-| `scripts/fighter.gd` | Lo que comparten todos: movimiento, ataques, escudo, parry, bordes, objetos… |
-| `scripts/stage.gd` | Reglas de la partida (KO, vidas, objetos, ganador) |
-| `scripts/cpu_brain.gd` | La "inteligencia" del CPU y sus 3 dificultades |
-| `scripts/menu.gd`, `hud.gd`, `results_screen.gd` | La interfaz |
-| `scripts/item.gd` | Los objetos (bate y arco) |
-| `assets/sprites/` | Dibujos (personajes, escenario, fondo) |
-| `assets/sounds/` | Sonidos |
-| `tools/` | Programitas para regenerar dibujos y sonidos |
-| `tests/` | Pruebas automáticas (puedes ignorarlas) |
+| `scripts/fighter.gd` | Lo común: movimiento, combos, escudo, parry, esquivas, bordes, objetos… |
+| `scripts/cards.gd` | Las cartas del modo Caos |
+| `scripts/item.gd` | Los objetos |
+| `scripts/game.gd` | Controles, lista de mapas, música, ajustes |
+| `scripts/stage.gd`, `stage_background.gd` | Reglas de la partida · fondo con profundidad y partículas |
+| `scripts/cpu_brain.gd` | La "inteligencia" del CPU y sus dificultades |
+| `assets/sprites/` | Personajes, objetos y proyectiles |
+| `assets/stages/` | Fondos (en capas) y texturas de los mapas |
+| `assets/sounds/`, `assets/music/` | Efectos (61) y música (4 pistas) |
+| `tools/` | Programas que generan dibujos, mapas, sonidos y música |
+| `tests/` | Pruebas automáticas |
 
 ---
 
-## 4. Primeros cambios (¡pruébalos!)
+## 5. Primeros cambios (¡pruébalos!)
 
-### 4.1 Hacer que un personaje corra más rápido
-1. En FileSystem abre `scripts/character_data.gd` (doble clic).
-2. Busca `"rojo"` y en su línea de movimiento cambia `"speed": 340.0` por `"speed": 450.0`
-   (`speed` = corriendo, `walk_speed` = caminando, `air_speed` = en el aire).
-3. **Ctrl+S** y **F5**. ¡Ya corre más rápido!
+### 5.1 Hacer que un personaje corra más rápido
+En `scripts/character_data.gd`, busca `"rojo"` y cambia `"speed": 350.0` por `"speed": 450.0`
+(`speed` = corriendo, `walk_speed` = caminando, `air_speed` = en el aire). **Ctrl+S** y **F5**.
 
-Todos los números tienen su explicación en comentarios al principio del mismo archivo. Los más divertidos:
+Otros números: `jump_vel` (salto), `gravity` (qué tan pesado cae), `weight` (peso), `power` (daño de todos sus
+golpes), `tempo` (velocidad de sus golpes: menos = más rápido).
 
-- `jump_vel` → qué tan alto salta.
-- `gravity` → qué tan "flotante" o pesado se siente.
-- `weight` → peso (más peso = cuesta más mandarlo a volar).
-- En `moves`: `dmg` (daño), `base_kb` (empuje base), `kb_scale` (cuánto crece el empuje con el daño), `angle` (hacia dónde sale volando el rival).
-- `startup / active / recovery` → velocidad del golpe (más chico = más rápido).
+### 5.2 Cambiar un golpe
+En el mismo archivo, arriba está la plantilla `FISTS` con todos los golpes (`jab1`, `ftilt`, `smash`, `nair`…).
+Cada personaje puede cambiar lo que quiera en su sección `"moves"`. Por ejemplo, para que el smash de RYU-KO pegue
+más: `"smash": {"dmg": 20.0}`.
 
-### 4.2 Cambiar las vidas por defecto
-En `scripts/game.gd`: `var stocks := 3` → pon el número que quieras (también se cambia desde el menú).
+### 5.3 Parry y barra de ulti
+En `scripts/fighter.gd`, arriba: `PARRY_WINDOW` (qué tan justo es el parry), `PARRY_METER` (cuánta barra da cada
+parry) y `HIT_METER` (cuánta barra da cada % de daño que haces).
 
-### 4.3 Cambiar las teclas
-En `scripts/game.gd`, sección `_register_controls`. Por ejemplo `"attack": KEY_F` → `"attack": KEY_J`.
+### 5.4 Cambiar las teclas
+En `scripts/game.gd`, sección `_register_controls`. Por ejemplo `"throw": [KEY_C]` → `"throw": [KEY_V]`.
 
-### 4.4 Cambiar el nombre del juego
-`Proyecto → Configuración del proyecto → Application → Config → Name`. Y el título grande del menú está en `scripts/menu.gd` (busca `"SUPER BRAWL"`).
+### 5.5 Modificar un mapa
+Abre `scenes/stages/pradera.tscn`. En **Escena** → `Platforms`, selecciona una plataforma y muévela o cambia `Size`
+en el **Inspector**. `One Way` = se atraviesa desde abajo. `Ground` = suelo principal (con bordes para colgarse).
+`Style` = textura. Las plataformas móviles tienen `Travel` (cuánto se mueven) y `Period` (en cuántos segundos).
 
-### 4.5 Modificar un escenario
-1. Abre `scenes/stages/pradera.tscn` (o `cosmos.tscn`, `ciudad.tscn`).
-2. En **Escena**, abre `Platforms` y haz clic en una plataforma (por ejemplo `PlatformLeft`).
-3. Arrástrala en la vista, o en el **Inspector** cambia `Position` y `Size` (ancho y alto).
-4. `One Way` activado = se puede atravesar desde abajo (plataforma flotante). `Ground` = suelo principal
-   (tiene bordes para colgarse). `Style` = textura (Pradera / Cósmico / Ciudad).
-5. Para agregar otra: selecciona una plataforma → **Ctrl+D** (duplicar) → muévela.
-6. El tamaño de la zona de KO está en el nodo raíz → propiedad `Blast Zone`.
+### 5.6 Agregar un mapa nuevo
+1. Duplica `scenes/stages/pradera.tscn` como `scenes/stages/playa.tscn` y cambia sus plataformas.
+2. En su nodo raíz pon `Stage Id = playa` y en el nodo `Background` también `Stage Id = playa`.
+3. Pon los fondos en `assets/stages/playa/` (`sky.png`, `far.png`, `mid.png`, `clouds.png`), o copia la carpeta de otro mapa.
+4. En `scripts/game.gd`, dentro de `STAGES`, copia una línea y cambia `"id": "playa"`, nombre y descripción.
 
-### 4.6 Agregar un mapa nuevo
-1. En FileSystem, clic derecho sobre `scenes/stages/pradera.tscn` → **Duplicar** → ponle `volcan.tscn`.
-2. Ábrelo y mueve/cambia las plataformas. Cambia el fondo en `Background > Sky > Texture`.
-3. En `scripts/game.gd`, dentro de `STAGES`, copia una línea y cámbiala: `"id": "volcan"`, nombre, descripción
-   y `"scene": "res://scenes/stages/volcan.tscn"`.
-4. (Opcional) Para su miniatura en el menú corre `tools/make_thumbnails.tscn` (ábrelo y presiona F6).
-
-### 4.7 Cambiar cómo funciona el parry o la ulti
-En `scripts/fighter.gd`, arriba del todo: `PARRY_WINDOW` (qué tan justo hay que presionar; más grande = más fácil)
-y `PARRY_METER` (cuánto llena cada parry).
+### 5.7 Agregar una carta al modo Caos
+En `scripts/cards.gd`: copia una línea de `DECK` (nombre, ícono, rareza, descripción) y agrega su efecto en `apply()`.
 
 ---
 
-## 5. Sprites (los dibujos)
+## 6. Los dibujos
 
-### 5.1 Cómo están hechos los personajes
-Cada personaje es **una sola imagen PNG** (una "hoja de sprites") de **384 × 832 píxeles**, dividida en una cuadrícula
-de cuadros de **64 × 64** (6 columnas × 13 filas). Cada **fila** es una animación:
+### 6.1 Personajes
+Cada personaje es una hoja de sprites `assets/sprites/char_<id>.png` de **1280 × 4464 píxeles**: cuadros de
+**160 × 144** (8 columnas × 31 filas). Cada **fila** es una animación, en este orden:
 
-| Fila | Animación | Cuadros | Cuándo se usa |
-|---|---|---|---|
-| 1 | `idle` | 4 | quieto |
-| 2 | `run` | 6 | corriendo |
-| 3 | `jump` | 1 | subiendo en un salto |
-| 4 | `fall` | 1 | cayendo |
-| 5 | `attack` | 5 | ataque normal (1 = preparar · 2‑4 = golpe activo · 5 = recuperar) |
-| 6 | `special` | 4 | ataque especial (el cuadro 3 es cuando sale la bola) |
-| 7 | `hurt` | 1 | recibiendo golpe |
-| 8 | `shield` | 1 | escudo |
-| 9 | `crouch` | 2 | agachado |
-| 10 | `taunt` | 4 | provocar |
-| 11 | `win` | 6 | celebración de victoria |
-| 12 | `ledge` | 1 | colgado del borde |
-| 13 | `upspecial` | 2 | recuperación (arriba + especial) |
+`idle, walk, run, jump, fall, crouch, shield, dodge, hurt, ledge, taunt, win, jab1, jab2, jab3, ftilt, utilt, dtilt,
+dash, smash, nair, fair, bair, uair, dair, special, upspecial, downspecial, charge, throw, ult`
 
-Reglas para que funcione sin tocar código:
-- El personaje **mira a la derecha** (el juego lo voltea solo).
-- Los **pies** deben quedar cerca de la **fila 61** del cuadro de 64 (abajo, con un poquito de margen).
-- El cuerpo centrado horizontalmente más o menos en la **columna 36** del cuadro.
-- Fondo **transparente** (PNG).
+(la cantidad de cuadros de cada una está en `scripts/fighter.gd`, lista `ANIMS`). Reglas: el personaje **mira a la
+derecha**, los **pies** en la fila 138 del cuadro y la cadera en la columna 70, con fondo transparente.
+Además hay `idle_<id>.png` (para los menús) y `portrait_<id>.png` (el retrato).
 
-### 5.2 Hacer tus propios dibujos
-Programas gratis para pixel art: **Piskel** (en el navegador, piskelapp.com), **LibreSprite**, **Pixelorama** (hecho en Godot),
-o Aseprite (de pago). Pasos:
-1. Crea un lienzo de cuadros de 64×64.
-2. Dibuja las animaciones según la tabla de arriba.
-3. Exporta como **PNG spritesheet** de 6 columnas.
-4. Guarda el PNG con el nombre `assets/sprites/char_<id>.png` (por ejemplo reemplazando `char_rojo.png`).
-5. Regresa a Godot: se reimporta solo. ¡Ya aparece tu personaje!
+Programas gratis para pixel art: **Piskel** (en el navegador), **LibreSprite**, **Pixelorama**. También puedes
+pedirme que cambie la apariencia de cualquier personaje.
 
-> Consejo: empieza **editando** los sprites que ya existen (ábrelos en Piskel, cámbiales colores y detalles) antes de
-> dibujar todo desde cero. También puedes **pedirme** que te genere personajes nuevos con otra apariencia.
+### 6.2 Mapas
+Cada mapa usa capas en `assets/stages/<mapa>/`: `sky.png` (cielo, quieto), `clouds.png` (se mueve sola), `far.png`
+y `mid.png` (se mueven con la cámara para dar profundidad; 2560 px de ancho y se repiten). Las texturas del suelo
+están en `assets/stages/tiles/`.
 
-### 5.3 Otros dibujos
-- `proj_<id>.png`: la bola del ataque especial (4 cuadros de 16×16 en una fila).
-- `bg_pradera.png`, `bg_cosmos.png`, `bg_ciudad.png`: fondos (640×360, se estiran a la pantalla).
-- `tile_*.png`: texturas de suelos y plataformas (se repiten en mosaico).
-- `item_bat.png`, `item_bow.png` (3 cuadros: normal, medio tenso, tenso), `item_arrow.png`: objetos.
-
-### 5.4 Regenerar los dibujos automáticos
-Los dibujos que vienen en el proyecto los genera `tools/make_sprites.py` (necesitas Python y `pip install pillow`).
-No es necesario usarlo; si lo vuelves a correr **sobrescribe** los PNG de `assets/sprites/`.
+### 6.3 Regenerar los dibujos automáticos
+Necesitas Python (`pip install pillow numpy`):
+`python3 tools/make_sprites.py` (personajes y objetos) · `python3 tools/make_stages.py` (mapas).
+Para las miniaturas del menú abre `tools/make_thumbnails.tscn` y presiona **F6**. ¡Ojo: sobrescriben los PNG!
 
 ---
 
-## 6. Agregar un personaje nuevo
-
-1. Crea su hoja de sprites y guárdala como `assets/sprites/char_luna.png` (y su proyectil `proj_luna.png`).
-2. Abre `scripts/character_data.gd`. **Copia** un bloque completo (por ejemplo el de `"rojo": { ... },`), pégalo debajo
-   y cámbiale el nombre a `"luna"`, el `name`, `desc`, `abilities`, las rutas de `sheet`/`proj`, el `color` y los números.
-   En `"script"` pon `"res://scripts/characters/luna.gd"`.
-3. Copia `scripts/characters/rojo.gd` como `luna.gd` (ahí están sus habilidades; para empezar puede quedarse igual).
-4. En la línea `const ORDER := [...]` agrega `"luna"`.
-5. **F5**: aparece en la selección de personaje.
-
-> Las habilidades nuevas (un especial distinto, otra ulti…) sí requieren programar. Pídemelas y las hacemos juntos.
-
-## 7. Sonidos
-Los efectos están en `assets/sounds/` (archivos `.wav`). Puedes **reemplazarlos** por los tuyos con el mismo nombre
-(`hit.wav`, `jump.wav`, `parry.wav`, `ult.wav`, `homerun.wav`…; son 41 en total, la lista está en `scripts/game.gd`). Sitios con sonidos gratis: freesound.org, kenney.nl, opengameart.org.
-Revisa siempre la licencia.
+## 7. Sonidos y música
+- Efectos en `assets/sounds/` (`.wav`) y música en `assets/music/` (`.ogg`: `menu`, `battle1`, `battle2`, `chaos`).
+  Reemplázalos por los tuyos con el mismo nombre. Sonidos gratis: freesound.org, kenney.nl, opengameart.org (revisa la licencia).
+- Regenerarlos: `pip install numpy scipy soundfile` y `python3 tools/make_audio.py`.
+- Qué música suena en cada mapa: `scripts/game.gd`, lista `STAGES`, campo `"music"`.
 
 ---
 
-## 8. Exportar el juego para compartirlo
-1. `Proyecto → Exportar…` → **Añadir…** → elige *Windows Desktop* (o tu sistema).
-2. Si te pide **plantillas de exportación**, clic en **Administrar plantillas** → **Descargar e instalar**.
-3. **Exportar proyecto**. Te genera un `.exe` que puedes pasarle a tus amigos.
+## 8. Agregar un personaje nuevo
+1. Sprites: agrega su bloque en `tools/make_sprites.py` (`CHARACTERS`) y ejecútalo, o dibuja tu hoja (sección 6.1).
+2. En `scripts/character_data.gd`: copia un bloque completo (por ejemplo `"rojo": {...}`), cambia nombre, textos,
+   colores, números y `"script": "res://scripts/characters/<id>.gd"`. Agrega el id a `ORDER`.
+3. Copia `scripts/characters/rojo.gd` como `<id>.gd` (ahí van sus habilidades).
+4. **F5**: aparece en la selección de personaje.
+
+> Las habilidades totalmente nuevas requieren programar. Pídemelas y las hacemos juntos.
 
 ---
 
-## 9. Si algo sale mal
+## 9. Exportar el juego para compartirlo
+`Proyecto → Exportar…` → **Añadir…** → *Windows Desktop* → (si lo pide, **Administrar plantillas → Descargar e
+instalar**) → **Exportar proyecto**. Te genera un `.exe` para compartir. En el juego exportado F11 funciona siempre.
+
+---
+
+## 10. Si algo sale mal
 
 | Problema | Solución |
 |---|---|
 | Sale un error rojo al abrir | Usa Godot **4.3 o más nuevo** (Standard, no .NET). |
-| Los personajes no se ven | Espera a que termine la barra de "importando" abajo a la derecha, o `Proyecto → Recargar proyecto actual`. |
+| Los personajes o fondos no se ven | Espera a que termine "importando", o `Proyecto → Recargar proyecto actual`. |
+| F11 no hace nada | Mira la nota de la sección 2 (juego dentro del editor). |
+| No suena la música | Revisa **Ajustes** en el menú (volumen de música). |
 | Cambié un número y nada cambió | ¿Guardaste (**Ctrl+S**)? Ejecuta otra vez con **F5**. |
-| Rompí algo en un script | `Ctrl+Z` para deshacer. Y recuerda: mientras tengas el ZIP original, siempre puedes volver a empezar. |
-| El gamepad no responde | Conéctalo **antes** de abrir el juego. El primero es P1, el segundo P2. |
-| Mensaje "Parse Error" | Casi siempre es un error al escribir (falta una coma, un `:`…). Fíjate en la línea que indica el mensaje. |
+| "Parse Error" | Casi siempre falta una coma o un `:`. Mira la línea que indica el mensaje. |
+| El gamepad no responde | Conéctalo **antes** de abrir el juego. |
 
-Regla de oro: **cambia una cosa a la vez y prueba** (F5). Así sabes qué causó cada cosa.
-
----
+Regla de oro: **cambia una cosa a la vez y prueba** (F5).
 
 Sigue con [`HOJA_DE_RUTA.md`](HOJA_DE_RUTA.md) para ver ideas de lo que podemos agregar después.
